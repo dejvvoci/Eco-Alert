@@ -1,0 +1,14 @@
+<resources>
+    <style name="Theme.EcoAlert" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#2E7D32</item>
+        <item name="colorPrimaryVariant">#1B5E20</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#66BB6A</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="android:statusBarColor">#2E7D32</item>
+    </style>
+
+    <style name="Theme.EcoAlert.Splash" parent="Theme.EcoAlert">
+        <item name="android:windowBackground">#2E7D32</item>
+    </style>
+</resources>

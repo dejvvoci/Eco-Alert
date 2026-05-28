@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "361304586505",
+    "project_id": "ecoalert-emdv",
+    "storage_bucket": "ecoalert-emdv.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:361304586505:android:27b3b3c593f05bc87afbd8",
+        "android_client_info": {
+          "package_name": "com.programimmobile.ecoalert"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC77VrhjkvPJUAG8u_kVm3mJsotAeDa4ys"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
