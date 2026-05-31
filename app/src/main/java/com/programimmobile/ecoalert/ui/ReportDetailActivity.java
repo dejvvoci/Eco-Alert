@@ -7,9 +7,11 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.bumptech.glide.Glide;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -32,6 +34,7 @@ public class ReportDetailActivity extends AppCompatActivity {
 
     private MaterialToolbar toolbar;
     private ImageView ivCategoryIcon;
+    private ImageView ivPhoto;
     private TextView tvCategory;
     private TextView tvDate;
     private TextView tvStatus;
@@ -39,10 +42,12 @@ public class ReportDetailActivity extends AppCompatActivity {
     private TextView tvLocation;
     private TextView tvConfirmations;
     private MaterialButton btnConfirm;
+    private MaterialButton btnDelete;
     private MapView miniMap;
     private MaterialCardView cardPhoto;
 
     private String reportId;
+    private String reportUserId;
     private double latitude;
     private double longitude;
 
@@ -63,6 +68,7 @@ public class ReportDetailActivity extends AppCompatActivity {
     private void initViews() {
         toolbar = findViewById(R.id.toolbar);
         ivCategoryIcon = findViewById(R.id.iv_category_icon);
+        ivPhoto = findViewById(R.id.iv_photo);
         tvCategory = findViewById(R.id.tv_category);
         tvDate = findViewById(R.id.tv_date);
         tvStatus = findViewById(R.id.tv_status);
@@ -70,6 +76,7 @@ public class ReportDetailActivity extends AppCompatActivity {
         tvLocation = findViewById(R.id.tv_location);
         tvConfirmations = findViewById(R.id.tv_confirmations);
         btnConfirm = findViewById(R.id.btn_confirm);
+        btnDelete = findViewById(R.id.btn_delete);
         miniMap = findViewById(R.id.mini_map);
         cardPhoto = findViewById(R.id.card_photo);
         locationManager = new LocationManager(this);
@@ -84,31 +91,40 @@ public class ReportDetailActivity extends AppCompatActivity {
 
     private void loadDataFromIntent() {
         reportId = getIntent().getStringExtra("report_id");
+        reportUserId = getIntent().getStringExtra("report_user_id");
         String category = getIntent().getStringExtra("category");
         String description = getIntent().getStringExtra("description");
         latitude = getIntent().getDoubleExtra("latitude", 0.0);
         longitude = getIntent().getDoubleExtra("longitude", 0.0);
         String status = getIntent().getStringExtra("status");
         int confirmations = getIntent().getIntExtra("confirmations", 0);
+        String photoUrl = getIntent().getStringExtra("photo_url");
 
-        // Vendos të dhënat në UI
+        // Të dhënat bazë
         tvCategory.setText(category != null ? category : "—");
-
-        if (description != null && !description.isEmpty()) {
-            tvDescription.setText(description);
-        } else {
-            tvDescription.setText("Pa përshkrim.");
-        }
-
+        tvDescription.setText(description != null && !description.isEmpty()
+                ? description : "Pa përshkrim.");
         tvStatus.setText(status != null ? status : "E re");
         tvConfirmations.setText(confirmations + " persona e kanë konfirmuar");
 
-        // Ngjyra e ikonës sipas kategorisë
+        // Ngjyra e ikonës
         int colorRes = getCategoryColor(category);
         ivCategoryIcon.setColorFilter(
                 getResources().getColor(colorRes, getTheme()));
 
-        // Merr adresën nga koordinatat
+        // Foto — shfaq nëse ekziston
+        if (photoUrl != null && !photoUrl.isEmpty()) {
+            cardPhoto.setVisibility(View.VISIBLE);
+            Glide.with(this)
+                    .load(photoUrl)
+                    .placeholder(android.R.drawable.ic_menu_gallery)
+                    .error(android.R.drawable.ic_menu_close_clear_cancel)
+                    .into(ivPhoto);
+        } else {
+            cardPhoto.setVisibility(View.GONE);
+        }
+
+        // Adresa nga koordinatat
         if (latitude != 0.0 && longitude != 0.0) {
             locationManager.getAddressFromCoordinates(latitude, longitude,
                     new LocationManager.AddressCallback() {
@@ -137,7 +153,6 @@ public class ReportDetailActivity extends AppCompatActivity {
         GeoPoint point = new GeoPoint(latitude, longitude);
         miniMap.getController().setCenter(point);
 
-        // Shto marker
         Marker marker = new Marker(miniMap);
         marker.setPosition(point);
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
@@ -149,7 +164,14 @@ public class ReportDetailActivity extends AppCompatActivity {
         reportViewModel = new ViewModelProvider(this).get(ReportViewModel.class);
         authViewModel = new ViewModelProvider(this).get(AuthViewModel.class);
 
-        // Observe gabimet
+        // Shfaq butonin delete vetëm nëse është pronari
+        String currentUserId = authViewModel.getCurrentUserId();
+        if (currentUserId != null && currentUserId.equals(reportUserId)) {
+            btnDelete.setVisibility(View.VISIBLE);
+        } else {
+            btnDelete.setVisibility(View.GONE);
+        }
+
         reportViewModel.getError().observe(this, error -> {
             if (error != null) {
                 Toast.makeText(this, error, Toast.LENGTH_LONG).show();
@@ -158,15 +180,33 @@ public class ReportDetailActivity extends AppCompatActivity {
     }
 
     private void setupClickListeners() {
+        // Konfirmo raportin
         btnConfirm.setOnClickListener(v -> {
             if (reportId != null) {
                 reportViewModel.confirmReport(reportId);
                 Toast.makeText(this,
-                        "Faleminderit për konfirmimin!",
-                        Toast.LENGTH_SHORT).show();
+                        "Faleminderit për konfirmimin!", Toast.LENGTH_SHORT).show();
                 btnConfirm.setEnabled(false);
                 btnConfirm.setText("U konfirmua ✓");
             }
+        });
+
+        // Fshi raportin — vetëm pronari
+        btnDelete.setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("Fshi Raportin")
+                    .setMessage("A je i sigurt që dëshiron ta fshish këtë raport? " +
+                            "Ky veprim nuk mund të zhbëhet.")
+                    .setPositiveButton("Fshi", (dialog, which) -> {
+                        if (reportId != null) {
+                            reportViewModel.deleteReport(reportId);
+                            Toast.makeText(this,
+                                    "Raporti u fshi.", Toast.LENGTH_SHORT).show();
+                            finish();
+                        }
+                    })
+                    .setNegativeButton("Anulo", null)
+                    .show();
         });
     }
 

@@ -19,6 +19,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.programimmobile.ecoalert.R;
+import com.programimmobile.ecoalert.utils.AppPreferences;
 import com.programimmobile.ecoalert.viewmodel.AuthViewModel;
 import com.programimmobile.ecoalert.viewmodel.ReportViewModel;
 
@@ -33,7 +34,7 @@ public class ProfileFragment extends Fragment {
     private TextView tvReportCount;
     private TextView tvConfirmationCount;
     private MaterialButton btnUpgrade;
-    private LinearLayout cardUpgrade;
+    private com.google.android.material.card.MaterialCardView cardUpgrade;
     private LinearLayout layoutLogout;
     private LinearLayout layoutAbout;
 
@@ -178,6 +179,8 @@ public class ProfileFragment extends Fragment {
                 .setTitle("Dil nga llogaria")
                 .setMessage("A je i sigurt që dëshiron të dalësh?")
                 .setPositiveButton("Dil", (dialog, which) -> {
+                    // Pastro flag-un — AuthActivity do shfaqet përsëri
+                    new AppPreferences(requireContext()).setAuthCompleted(false);
                     authViewModel.signOut(requireActivity());
                 })
                 .setNegativeButton("Anulo", null)

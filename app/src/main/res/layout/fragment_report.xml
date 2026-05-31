@@ -127,11 +127,13 @@
                     android:textColor="@color/green_primary"
                     android:layout_marginBottom="8dp" />
 
+                <!-- Adresa e zgjedhur -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="10dp">
 
                     <ImageView
                         android:layout_width="24dp"
@@ -149,15 +151,36 @@
                         android:textSize="13sp"
                         android:textColor="@color/gray_medium" />
 
+                </LinearLayout>
+
+                <!-- Dy butonat -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_refresh_location"
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:text="Rifresko"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="GPS Automatik"
                         android:textSize="12sp"
-                        style="@style/Widget.Material3.Button.TextButton"
-                        app:iconGravity="textStart"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        app:strokeColor="@color/green_primary"
                         app:icon="@android:drawable/ic_popup_sync" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_pick_location"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Zgjidh në hartë"
+                        android:textSize="12sp"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        app:strokeColor="@color/green_primary"
+                        app:icon="@android:drawable/ic_dialog_map" />
 
                 </LinearLayout>
 

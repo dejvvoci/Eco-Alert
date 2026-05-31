@@ -66,7 +66,6 @@ public class HistoryFragment extends Fragment {
 
     private void setupRecyclerView() {
         adapter = new ReportAdapter(report -> {
-            // Klikim mbi raport — hap detajet
             Intent intent = new Intent(requireContext(), ReportDetailActivity.class);
             intent.putExtra("report_id", report.getId());
             intent.putExtra("category", report.getCategory());
@@ -75,6 +74,8 @@ public class HistoryFragment extends Fragment {
             intent.putExtra("longitude", report.getLongitude());
             intent.putExtra("status", report.getStatus());
             intent.putExtra("confirmations", report.getConfirmations());
+            intent.putExtra("photo_url", report.getPhotoUrl());
+            intent.putExtra("report_user_id", report.getUserId());
             startActivity(intent);
         });
 

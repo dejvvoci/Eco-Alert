@@ -69,6 +69,17 @@ public class ReportFragment extends Fragment {
                         if (result.getResultCode() == Activity.RESULT_OK
                                 && result.getData() != null) {
                             selectedPhotoUri = result.getData().getData();
+
+                            // Merr leje të përhershme për URI
+                            try {
+                                requireContext().getContentResolver()
+                                        .takePersistableUriPermission(
+                                                selectedPhotoUri,
+                                                Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            } catch (Exception e) {
+                                // Disa URI nuk e mbështesin — vazhdo normalisht
+                            }
+
                             ivPhotoPreview.setImageURI(selectedPhotoUri);
                             ivPhotoPreview.setVisibility(View.VISIBLE);
                         }
@@ -85,6 +96,29 @@ public class ReportFragment extends Fragment {
                             getCurrentLocation();
                         } else {
                             tvLocation.setText("Leja e lokacionit u refuzua.");
+                        }
+                    });
+
+    // Launcher për LocationPickerActivity
+    private final ActivityResultLauncher<Intent> locationPickerLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (result.getResultCode() == Activity.RESULT_OK
+                                && result.getData() != null) {
+                            currentLatitude = result.getData()
+                                    .getDoubleExtra(LocationPickerActivity.EXTRA_LATITUDE, 0.0);
+                            currentLongitude = result.getData()
+                                    .getDoubleExtra(LocationPickerActivity.EXTRA_LONGITUDE, 0.0);
+                            String address = result.getData()
+                                    .getStringExtra(LocationPickerActivity.EXTRA_ADDRESS);
+
+                            locationObtained = true;
+                            tvLocation.setText(address != null ? address :
+                                    String.format("%.4f, %.4f",
+                                            currentLatitude, currentLongitude));
+                            tvLocation.setTextColor(ContextCompat.getColor(
+                                    requireContext(), R.color.black));
                         }
                     });
 
@@ -166,6 +200,15 @@ public class ReportFragment extends Fragment {
             photoPickerLauncher.launch(intent);
         });
 
+        // Zgjidh lokacion nga harta
+        MaterialButton btnPickLocation = requireView().findViewById(R.id.btn_pick_location);
+        btnPickLocation.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), LocationPickerActivity.class);
+            intent.putExtra(LocationPickerActivity.EXTRA_INIT_LAT, currentLatitude);
+            intent.putExtra(LocationPickerActivity.EXTRA_INIT_LNG, currentLongitude);
+            locationPickerLauncher.launch(intent);
+        });
+
         btnSubmit.setOnClickListener(v -> submitReport());
     }
 
@@ -225,9 +268,10 @@ public class ReportFragment extends Fragment {
     }
 
     private void submitReport() {
-        if (!locationObtained) {
+        if (!locationObtained || (currentLatitude == 0.0 && currentLongitude == 0.0)) {
             Toast.makeText(requireContext(),
-                    "Prit derisa të merret lokacioni.", Toast.LENGTH_SHORT).show();
+                    "Lokacioni është i detyrueshëm. Zgjidh lokacionin para dërgimit.",
+                    Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -242,9 +286,82 @@ public class ReportFragment extends Fragment {
             return;
         }
 
-        Report report = new Report(userId, category, description,
-                currentLatitude, currentLongitude);
-        reportViewModel.addReport(report);
+        progressBar.setVisibility(View.VISIBLE);
+        btnSubmit.setEnabled(false);
+
+        if (selectedPhotoUri != null) {
+            // Ngarko foton në Firebase Storage pastaj dërgo raportin
+            uploadPhotoAndSubmit(userId, category, description);
+        } else {
+            // Dërgo raportin pa foto
+            Report report = new Report(userId, category, description,
+                    currentLatitude, currentLongitude);
+            reportViewModel.addReport(report);
+        }
+    }
+
+    private void uploadPhotoAndSubmit(String userId, String category, String description) {
+        com.google.firebase.storage.FirebaseStorage storage =
+                com.google.firebase.storage.FirebaseStorage.getInstance();
+        com.google.firebase.storage.StorageReference photoRef =
+                storage.getReference()
+                        .child("reports")
+                        .child(userId)
+                        .child(System.currentTimeMillis() + ".jpg");
+
+        // Kontrollo nëse URI është e aksesueshme
+        try {
+            requireContext().getContentResolver()
+                    .openInputStream(selectedPhotoUri).close();
+        } catch (Exception e) {
+            Toast.makeText(requireContext(),
+                    "Foto nuk është e aksesueshme: " + e.getMessage(),
+                    Toast.LENGTH_LONG).show();
+            // Dërgo raportin pa foto
+            Report report = new Report(userId, category, description,
+                    currentLatitude, currentLongitude);
+            reportViewModel.addReport(report);
+            return;
+        }
+
+        Toast.makeText(requireContext(),
+                "Duke ngarkuar foton...", Toast.LENGTH_SHORT).show();
+
+        photoRef.putFile(selectedPhotoUri)
+                .addOnProgressListener(snapshot -> {
+                    double progress = (100.0 * snapshot.getBytesTransferred())
+                            / snapshot.getTotalByteCount();
+                    // Opsionale: shfaq progress
+                })
+                .addOnSuccessListener(taskSnapshot -> {
+                    photoRef.getDownloadUrl()
+                            .addOnSuccessListener(uri -> {
+                                Report report = new Report(userId, category,
+                                        description, currentLatitude, currentLongitude);
+                                report.setPhotoUrl(uri.toString());
+                                reportViewModel.addReport(report);
+                                Toast.makeText(requireContext(),
+                                        "Foto u ngarkua me sukses!",
+                                        Toast.LENGTH_SHORT).show();
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(requireContext(),
+                                        "URL e fotos dështoi: " + e.getMessage(),
+                                        Toast.LENGTH_LONG).show();
+                                Report report = new Report(userId, category,
+                                        description, currentLatitude, currentLongitude);
+                                reportViewModel.addReport(report);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(requireContext(),
+                            "Upload dështoi: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                    // Dërgo pa foto
+                    Report report = new Report(userId, category,
+                            description, currentLatitude, currentLongitude);
+                    reportViewModel.addReport(report);
+                });
     }
 
     private void clearForm() {

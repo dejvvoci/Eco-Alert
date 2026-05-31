@@ -15,6 +15,7 @@ import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.programimmobile.ecoalert.R;
+import com.programimmobile.ecoalert.utils.AppPreferences;
 import com.programimmobile.ecoalert.viewmodel.AuthViewModel;
 
 public class AuthActivity extends AppCompatActivity {
@@ -27,6 +28,7 @@ public class AuthActivity extends AppCompatActivity {
     private MaterialButton btnAuth, btnAnonymous;
     private TextView tvForgotPassword;
     private ProgressBar progressBar;
+    private AppPreferences appPreferences;
 
     private boolean isLoginMode = true;
 
@@ -51,6 +53,7 @@ public class AuthActivity extends AppCompatActivity {
         btnAnonymous = findViewById(R.id.btn_anonymous);
         tvForgotPassword = findViewById(R.id.tv_forgot_password);
         progressBar = findViewById(R.id.progress_bar);
+        appPreferences = new AppPreferences(this);
     }
 
     private void setupViewModel() {
@@ -59,6 +62,8 @@ public class AuthActivity extends AppCompatActivity {
         // Observe përdoruesin — kur logohet kalo te MainActivity
         authViewModel.getCurrentUser().observe(this, user -> {
             if (user != null) {
+                // Shëno që përdoruesi bëri zgjedhje të qëllimshme
+                appPreferences.setAuthCompleted(true);
                 goToMain();
             }
         });

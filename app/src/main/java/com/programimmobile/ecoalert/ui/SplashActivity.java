@@ -9,50 +9,40 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.programimmobile.ecoalert.R;
+import com.programimmobile.ecoalert.utils.AppPreferences;
 import com.programimmobile.ecoalert.viewmodel.AuthViewModel;
 
 public class SplashActivity extends AppCompatActivity {
 
     private static final int SPLASH_DELAY = 2000;
-    private AuthViewModel authViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
 
-        authViewModel = new ViewModelProvider(this).get(AuthViewModel.class);
+        AppPreferences appPreferences = new AppPreferences(this);
+        AuthViewModel authViewModel =
+                new ViewModelProvider(this).get(AuthViewModel.class);
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            if (authViewModel.isLoggedIn()) {
-                // Përdoruesi ekziston — hyr direkt
+            if (authViewModel.isLoggedIn() && appPreferences.isAuthCompleted()) {
+                // Përdoruesi ka bërë zgjedhje të qëllimshme — hyr direkt
                 goToMain();
             } else {
-                // Hyrje anonime automatike
-                authViewModel.signInAnonymously();
-                observeAuth();
+                // Shfaq ekranin e autentifikimit
+                goToAuth();
             }
         }, SPLASH_DELAY);
     }
 
-    private void observeAuth() {
-        authViewModel.getCurrentUser().observe(this, user -> {
-            if (user != null) {
-                goToMain();
-            }
-        });
-
-        authViewModel.getError().observe(this, error -> {
-            if (error != null) {
-                // Edhe nëse ka gabim, hyr si anonim pas 1 sekonde
-                new Handler(Looper.getMainLooper()).postDelayed(this::goToMain, 1000);
-            }
-        });
+    private void goToMain() {
+        startActivity(new Intent(this, MainActivity.class));
+        finish();
     }
 
-    private void goToMain() {
-        Intent intent = new Intent(this, MainActivity.class);
-        startActivity(intent);
+    private void goToAuth() {
+        startActivity(new Intent(this, AuthActivity.class));
         finish();
     }
 }

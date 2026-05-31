@@ -43,6 +43,10 @@
             android:name=".ui.ReportDetailActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".ui.LocationPickerActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>
