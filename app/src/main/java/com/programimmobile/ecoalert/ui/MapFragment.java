@@ -29,7 +29,6 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
-import com.programimmobile.ecoalert.ui.ReportInfoWindow;
 
 import java.util.List;
 
@@ -151,15 +150,14 @@ public class MapFragment extends Fragment {
     }
 
     private void updateMarkers(List<Report> reports) {
-        // Pastro të gjitha markers ekzistuese
         mapView.getOverlays().clear();
 
         for (Report report : reports) {
-            // Apliko filtrin
+            if (report.getLatitude() == 0.0
+                    && report.getLongitude() == 0.0) continue;
+
             if (!currentFilter.equals("Të gjitha")
-                    && !currentFilter.equals(report.getCategory())) {
-                continue;
-            }
+                    && !currentFilter.equals(report.getCategory())) continue;
 
             addMarkerForReport(report);
         }
@@ -173,14 +171,13 @@ public class MapFragment extends Fragment {
 
         Marker marker = new Marker(mapView);
         marker.setPosition(point);
-        marker.setAnchor(Marker.ANCHOR_CENTER, 1.0f);
+        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
 
-        // Marker custom me shkronjë dhe madhësi dinamike
-        MarkerDrawable markerDrawable = new MarkerDrawable(
+        // Bitmap marker
+        marker.setIcon(MarkerBitmapHelper.createMarker(
                 requireContext(),
                 report.getCategory(),
-                report.getConfirmations());
-        marker.setIcon(markerDrawable);
+                report.getConfirmations()));
 
         // InfoWindow
         ReportInfoWindow infoWindow =

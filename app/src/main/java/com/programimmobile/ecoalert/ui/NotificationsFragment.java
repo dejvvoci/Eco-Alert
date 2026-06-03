@@ -13,17 +13,19 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
 import com.programimmobile.ecoalert.R;
 import com.programimmobile.ecoalert.model.Notification;
 import com.programimmobile.ecoalert.repository.NotificationRepository;
 import com.programimmobile.ecoalert.viewmodel.AuthViewModel;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -60,102 +62,120 @@ public class NotificationsFragment extends Fragment {
 
         String userId = authViewModel.getCurrentUserId();
         if (userId != null) {
-            progressBar.setVisibility(View.VISIBLE);
-            loadNotifications(userId);
+            loadNotificationsDirectly(userId);
+        } else {
+            progressBar.setVisibility(View.GONE);
+            layoutEmpty.setVisibility(View.VISIBLE);
         }
     }
 
-    private void loadNotifications(String userId) {
-        MutableLiveData<List<Notification>> liveData = new MutableLiveData<>();
+    private void loadNotificationsDirectly(String userId) {
+        progressBar.setVisibility(View.VISIBLE);
 
-        NotificationRepository.getInstance()
-                .getUserNotifications(userId, liveData);
+        FirebaseFirestore.getInstance()
+                .collection("notifications")
+                .whereEqualTo("userId", userId)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .addSnapshotListener((snapshots, error) -> {
+                    if (!isAdded()) return;
 
-        liveData.observe(getViewLifecycleOwner(), notifications -> {
-            progressBar.setVisibility(View.GONE);
+                    progressBar.setVisibility(View.GONE);
 
-            if (notifications == null || notifications.isEmpty()) {
-                rvNotifications.setVisibility(View.GONE);
-                layoutEmpty.setVisibility(View.VISIBLE);
-                return;
-            }
+                    if (error != null) {
+                        layoutEmpty.setVisibility(View.VISIBLE);
+                        rvNotifications.setVisibility(View.GONE);
+                        return;
+                    }
 
-            rvNotifications.setVisibility(View.VISIBLE);
-            layoutEmpty.setVisibility(View.GONE);
+                    if (snapshots == null || snapshots.isEmpty()) {
+                        layoutEmpty.setVisibility(View.VISIBLE);
+                        rvNotifications.setVisibility(View.GONE);
+                        return;
+                    }
 
-            // Shëno si të lexuara
-            NotificationRepository.getInstance().markAllAsRead(userId);
+                    List<Notification> notifications = new ArrayList<>();
+                    notifications.addAll(
+                            snapshots.toObjects(Notification.class));
 
-            // Adapter inline
-            rvNotifications.setAdapter(
-                    new RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-                        @NonNull
-                        @Override
-                        public RecyclerView.ViewHolder onCreateViewHolder(
-                                @NonNull ViewGroup parent, int viewType) {
-                            View v = LayoutInflater.from(parent.getContext())
-                                    .inflate(R.layout.item_notification,
-                                            parent, false);
-                            return new RecyclerView.ViewHolder(v) {};
+                    layoutEmpty.setVisibility(View.GONE);
+                    rvNotifications.setVisibility(View.VISIBLE);
+
+                    // Shëno si të lexuara
+                    NotificationRepository.getInstance()
+                            .markAllAsRead(userId);
+
+                    setupAdapter(notifications);
+                });
+    }
+
+    private void setupAdapter(List<Notification> notifications) {
+        rvNotifications.setAdapter(
+                new RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+                    @NonNull
+                    @Override
+                    public RecyclerView.ViewHolder onCreateViewHolder(
+                            @NonNull ViewGroup parent, int viewType) {
+                        View v = LayoutInflater.from(parent.getContext())
+                                .inflate(R.layout.item_notification, parent, false);
+                        return new RecyclerView.ViewHolder(v) {};
+                    }
+
+                    @Override
+                    public void onBindViewHolder(
+                            @NonNull RecyclerView.ViewHolder holder, int pos) {
+                        Notification n = notifications.get(pos);
+
+                        TextView tvTitle   = holder.itemView.findViewById(
+                                R.id.tv_notif_title);
+                        TextView tvMessage = holder.itemView.findViewById(
+                                R.id.tv_notif_message);
+                        TextView tvDate    = holder.itemView.findViewById(
+                                R.id.tv_notif_date);
+                        ImageView ivIcon   = holder.itemView.findViewById(
+                                R.id.iv_notif_icon);
+                        View viewUnread    = holder.itemView.findViewById(
+                                R.id.view_unread);
+
+                        boolean isApproved = Notification.TYPE_APPROVED
+                                .equals(n.getType());
+
+                        tvTitle.setText(isApproved
+                                ? "✅ Raport i Aprovuar"
+                                : "❌ Raport i Refuzuar");
+                        tvTitle.setTextColor(ContextCompat.getColor(
+                                requireContext(),
+                                isApproved ? R.color.category_other
+                                        : R.color.category_waste));
+
+                        tvMessage.setText(n.getMessage() != null
+                                ? n.getMessage() : "—");
+
+                        if (n.getTimestamp() != null) {
+                            SimpleDateFormat sdf = new SimpleDateFormat(
+                                    "dd/MM/yyyy HH:mm", Locale.getDefault());
+                            tvDate.setText(sdf.format(n.getTimestamp()));
+                        } else {
+                            tvDate.setText("—");
                         }
 
-                        @Override
-                        public void onBindViewHolder(
-                                @NonNull RecyclerView.ViewHolder holder, int pos) {
-                            Notification n = notifications.get(pos);
+                        int iconColor = isApproved
+                                ? R.color.category_other
+                                : R.color.category_waste;
+                        ivIcon.getBackground().setTint(
+                                ContextCompat.getColor(requireContext(), iconColor));
 
-                            TextView tvTitle   = holder.itemView.findViewById(
-                                    R.id.tv_notif_title);
-                            TextView tvMessage = holder.itemView.findViewById(
-                                    R.id.tv_notif_message);
-                            TextView tvDate    = holder.itemView.findViewById(
-                                    R.id.tv_notif_date);
-                            ImageView ivIcon   = holder.itemView.findViewById(
-                                    R.id.iv_notif_icon);
-                            View viewUnread    = holder.itemView.findViewById(
-                                    R.id.view_unread);
-
-                            // Tipi i njoftimit
-                            boolean isApproved = Notification.TYPE_APPROVED
-                                    .equals(n.getType());
-                            tvTitle.setText(isApproved
-                                    ? "✅ Raport i Aprovuar"
-                                    : "❌ Raport i Refuzuar");
-                            tvTitle.setTextColor(ContextCompat.getColor(
-                                    requireContext(),
-                                    isApproved ? R.color.category_other
-                                            : R.color.category_waste));
-
-                            tvMessage.setText(n.getMessage() != null
-                                    ? n.getMessage() : "—");
-
-                            // Data
-                            if (n.getTimestamp() != null) {
-                                SimpleDateFormat sdf = new SimpleDateFormat(
-                                        "dd/MM/yyyy HH:mm", Locale.getDefault());
-                                tvDate.setText(sdf.format(n.getTimestamp()));
-                            }
-
-                            // Ikona sipas tipit
-                            int iconColor = isApproved
-                                    ? R.color.category_other
-                                    : R.color.category_waste;
-                            ivIcon.getBackground().setTint(
-                                    ContextCompat.getColor(requireContext(), iconColor));
-
-                            // Tregues palexuar
-                            viewUnread.setVisibility(
-                                    n.isRead() ? View.INVISIBLE : View.VISIBLE);
-                            if (!n.isRead()) {
-                                viewUnread.getBackground().setTint(
-                                        ContextCompat.getColor(requireContext(),
-                                                R.color.green_primary));
-                            }
+                        viewUnread.setVisibility(
+                                n.isRead() ? View.INVISIBLE : View.VISIBLE);
+                        if (!n.isRead()) {
+                            viewUnread.getBackground().setTint(
+                                    ContextCompat.getColor(requireContext(),
+                                            R.color.green_primary));
                         }
+                    }
 
-                        @Override
-                        public int getItemCount() { return notifications.size(); }
-                    });
-        });
+                    @Override
+                    public int getItemCount() { return notifications.size(); }
+                });
     }
 }

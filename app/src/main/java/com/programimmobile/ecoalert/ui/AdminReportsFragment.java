@@ -223,8 +223,8 @@ public class AdminReportsFragment extends Fragment
     }
 
     private void sendEmailToInstitution(Report report,
-                                        String email, String institutionName) {
-        // Ndërto emailin
+                                        String email,
+                                        String institutionName) {
         String subject = "[EcoAlert] Raport Ndotjeje — "
                 + report.getCategory();
         String body = "Të nderuar,\n\n"
@@ -237,18 +237,31 @@ public class AdminReportsFragment extends Fragment
                 + "Konfirmime nga komuniteti: "
                 + report.getConfirmations() + "\n\n"
                 + "Ju lutemi ndërmerrni masat e nevojshme.\n\n"
-                + "Me respekt,\nEchoAlert Admin";
+                + "Me respekt,\nEcoAlert Admin";
 
-        // Hap email client
+        // Metoda 1 — ACTION_SENDTO (email apps direkt)
         Intent emailIntent = new Intent(Intent.ACTION_SENDTO);
-        emailIntent.setData(Uri.parse("mailto:"));
-        emailIntent.putExtra(Intent.EXTRA_EMAIL, new String[]{email});
+        emailIntent.setData(android.net.Uri.parse("mailto:" + email));
         emailIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
         emailIntent.putExtra(Intent.EXTRA_TEXT, body);
 
-        if (emailIntent.resolveActivity(
-                requireContext().getPackageManager()) != null) {
-            startActivity(emailIntent);
+        // Metoda 2 — ACTION_SEND me chooser (fallback)
+        Intent fallbackIntent = new Intent(Intent.ACTION_SEND);
+        fallbackIntent.setType("message/rfc822");
+        fallbackIntent.putExtra(Intent.EXTRA_EMAIL, new String[]{email});
+        fallbackIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
+        fallbackIntent.putExtra(Intent.EXTRA_TEXT, body);
+
+        // Metoda 3 — Chooser që provon të dyja
+        Intent chooser = Intent.createChooser(fallbackIntent,
+                "Dërgo email me...");
+
+        // Shto emailIntent si alternativë shtesë
+        chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS,
+                new Intent[]{emailIntent});
+
+        try {
+            startActivity(chooser);
 
             // Ruaj në Firestore
             String adminId = authViewModel.getCurrentUserId();
@@ -265,13 +278,41 @@ public class AdminReportsFragment extends Fragment
             reportViewModel.saveSentReport(sentReport);
 
             Toast.makeText(requireContext(),
-                    "Email u dërgua te " + institutionName,
+                    "Duke hapur email client...",
                     Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(requireContext(),
-                    "Nuk u gjet asnjë aplikacion emaili.",
-                    Toast.LENGTH_LONG).show();
+
+        } catch (android.content.ActivityNotFoundException e) {
+            // Asnjë aplikacion — ofro kopjim në clipboard
+            showCopyToClipboardDialog(email, subject, body);
         }
+    }
+
+    private void showCopyToClipboardDialog(String email,
+                                           String subject,
+                                           String body) {
+        String fullText = "Destinatari: " + email + "\n"
+                + "Subjekti: " + subject + "\n\n"
+                + body;
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Nuk u gjet aplikacion emaili")
+                .setMessage("Teksti i emailit u kopjua në clipboard.\n"
+                        + "Mund ta ngasësh manualisht.")
+                .setPositiveButton("Kopjo", (d, w) -> {
+                    android.content.ClipboardManager clipboard =
+                            (android.content.ClipboardManager)
+                                    requireContext().getSystemService(
+                                            android.content.Context.CLIPBOARD_SERVICE);
+                    android.content.ClipData clip =
+                            android.content.ClipData.newPlainText(
+                                    "Email EcoAlert", fullText);
+                    clipboard.setPrimaryClip(clip);
+                    Toast.makeText(requireContext(),
+                            "U kopjua në clipboard!",
+                            Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Anulo", null)
+                .show();
     }
 
     @Override

@@ -5,15 +5,17 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -27,8 +29,6 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
@@ -54,13 +54,13 @@ public class ReportFragment extends Fragment {
     private ReportViewModel reportViewModel;
     private AuthViewModel authViewModel;
     private LocationManager locationManager;
-    private PhotoPreviewAdapter photoAdapter;
 
     private Spinner spinnerCategory;
     private TextInputEditText etDescription;
     private TextView tvLocation;
     private TextView tvPhotoCount;
-    private RecyclerView rvPhotos;
+    private HorizontalScrollView scrollPhotos;
+    private LinearLayout llPhotos;
     private MaterialButton btnRefreshLocation;
     private MaterialButton btnPickLocation;
     private MaterialButton btnCamera;
@@ -85,17 +85,24 @@ public class ReportFragment extends Fragment {
                     permissions -> {
                         Boolean granted = permissions.getOrDefault(
                                 Manifest.permission.ACCESS_FINE_LOCATION, false);
-                        if (Boolean.TRUE.equals(granted)) getCurrentLocation();
-                        else tvLocation.setText("Leja e lokacionit u refuzua.");
+                        if (Boolean.TRUE.equals(granted)) {
+                            getCurrentLocation();
+                        } else {
+                            tvLocation.setText("Leja e lokacionit u refuzua.");
+                        }
                     });
 
     private final ActivityResultLauncher<String> cameraPermissionLauncher =
             registerForActivityResult(
                     new ActivityResultContracts.RequestPermission(),
                     granted -> {
-                        if (Boolean.TRUE.equals(granted)) openCamera();
-                        else Toast.makeText(requireContext(),
-                                "Leja e kamerës u refuzua.", Toast.LENGTH_SHORT).show();
+                        if (Boolean.TRUE.equals(granted)) {
+                            openCamera();
+                        } else {
+                            Toast.makeText(requireContext(),
+                                    "Leja e kamerës u refuzua.",
+                                    Toast.LENGTH_SHORT).show();
+                        }
                     });
 
     private final ActivityResultLauncher<Intent> cameraLauncher =
@@ -106,8 +113,7 @@ public class ReportFragment extends Fragment {
                                 && cameraPhotoUri != null) {
                             Bitmap bitmap = loadBitmapFromUri(cameraPhotoUri);
                             if (bitmap != null) {
-                                photoAdapter.addPhoto(cameraPhotoUri, bitmap);
-                                updatePhotoCount();
+                                addPhotoToLayout(cameraPhotoUri, bitmap);
                             }
                         }
                     });
@@ -122,8 +128,7 @@ public class ReportFragment extends Fragment {
                             if (uri != null) {
                                 Bitmap bitmap = loadBitmapFromUri(uri);
                                 if (bitmap != null) {
-                                    photoAdapter.addPhoto(uri, bitmap);
-                                    updatePhotoCount();
+                                    addPhotoToLayout(uri, bitmap);
                                 }
                             }
                         }
@@ -141,7 +146,7 @@ public class ReportFragment extends Fragment {
                             currentLongitude = result.getData()
                                     .getDoubleExtra(
                                             LocationPickerActivity.EXTRA_LONGITUDE, 0.0);
-                            String address   = result.getData()
+                            String address = result.getData()
                                     .getStringExtra(
                                             LocationPickerActivity.EXTRA_ADDRESS);
                             locationObtained = true;
@@ -170,23 +175,23 @@ public class ReportFragment extends Fragment {
         initViews(view);
         setupViewModels();
         setupCategorySpinner();
-        setupPhotoRecyclerView();
-        setupClickListeners(view);
+        setupClickListeners();
         checkAndGetLocation();
     }
 
     private void initViews(View view) {
-        spinnerCategory  = view.findViewById(R.id.spinner_category);
-        etDescription    = view.findViewById(R.id.et_description);
-        tvLocation       = view.findViewById(R.id.tv_location);
-        tvPhotoCount     = view.findViewById(R.id.tv_photo_count);
-        rvPhotos         = view.findViewById(R.id.rv_photos);
+        spinnerCategory    = view.findViewById(R.id.spinner_category);
+        etDescription      = view.findViewById(R.id.et_description);
+        tvLocation         = view.findViewById(R.id.tv_location);
+        tvPhotoCount       = view.findViewById(R.id.tv_photo_count);
+        scrollPhotos       = view.findViewById(R.id.scroll_photos);
+        llPhotos           = view.findViewById(R.id.ll_photos);
         btnRefreshLocation = view.findViewById(R.id.btn_refresh_location);
-        btnPickLocation  = view.findViewById(R.id.btn_pick_location);
-        btnCamera        = view.findViewById(R.id.btn_camera);
-        btnGallery       = view.findViewById(R.id.btn_gallery);
-        btnSubmit        = view.findViewById(R.id.btn_submit);
-        progressBar      = view.findViewById(R.id.progress_bar);
+        btnPickLocation    = view.findViewById(R.id.btn_pick_location);
+        btnCamera          = view.findViewById(R.id.btn_camera);
+        btnGallery         = view.findViewById(R.id.btn_gallery);
+        btnSubmit          = view.findViewById(R.id.btn_submit);
+        progressBar        = view.findViewById(R.id.progress_bar);
     }
 
     private void setupViewModels() {
@@ -229,33 +234,21 @@ public class ReportFragment extends Fragment {
         spinnerCategory.setAdapter(adapter);
     }
 
-    private void setupPhotoRecyclerView() {
-        photoAdapter = new PhotoPreviewAdapter(position -> {
-            photoAdapter.removePhoto(position);
-            updatePhotoCount();
-            if (photoAdapter.getPhotoCount() == 0) {
-                rvPhotos.setVisibility(View.GONE);
-            }
-        });
-
-        rvPhotos.setLayoutManager(new LinearLayoutManager(
-                requireContext(), LinearLayoutManager.HORIZONTAL, false));
-        rvPhotos.setAdapter(photoAdapter);
-    }
-
-    private void setupClickListeners(View view) {
+    private void setupClickListeners() {
         btnRefreshLocation.setOnClickListener(v -> checkAndGetLocation());
 
         btnPickLocation.setOnClickListener(v -> {
             Intent intent = new Intent(requireContext(),
                     LocationPickerActivity.class);
-            intent.putExtra(LocationPickerActivity.EXTRA_INIT_LAT, currentLatitude);
-            intent.putExtra(LocationPickerActivity.EXTRA_INIT_LNG, currentLongitude);
+            intent.putExtra(LocationPickerActivity.EXTRA_INIT_LAT,
+                    currentLatitude);
+            intent.putExtra(LocationPickerActivity.EXTRA_INIT_LNG,
+                    currentLongitude);
             locationPickerLauncher.launch(intent);
         });
 
         btnCamera.setOnClickListener(v -> {
-            if (photoAdapter.getPhotoCount() >= MAX_PHOTOS) {
+            if (llPhotos.getChildCount() >= MAX_PHOTOS) {
                 Toast.makeText(requireContext(),
                         "Maksimumi 3 foto.", Toast.LENGTH_SHORT).show();
                 return;
@@ -270,7 +263,7 @@ public class ReportFragment extends Fragment {
         });
 
         btnGallery.setOnClickListener(v -> {
-            if (photoAdapter.getPhotoCount() >= MAX_PHOTOS) {
+            if (llPhotos.getChildCount() >= MAX_PHOTOS) {
                 Toast.makeText(requireContext(),
                         "Maksimumi 3 foto.", Toast.LENGTH_SHORT).show();
                 return;
@@ -298,7 +291,8 @@ public class ReportFragment extends Fragment {
             cameraLauncher.launch(cameraIntent);
         } catch (IOException e) {
             Toast.makeText(requireContext(),
-                    "Gabim gjatë hapjes së kamerës.", Toast.LENGTH_SHORT).show();
+                    "Gabim gjatë hapjes së kamerës.",
+                    Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -310,6 +304,60 @@ public class ReportFragment extends Fragment {
         return File.createTempFile(imageFileName, ".jpg", storageDir);
     }
 
+    // ─── Foto Layout ──────────────────────────────────────────────────────────
+
+    private void addPhotoToLayout(Uri uri, Bitmap bitmap) {
+        FrameLayout frame = new FrameLayout(requireContext());
+        LinearLayout.LayoutParams frameParams =
+                new LinearLayout.LayoutParams(dpToPx(80), dpToPx(80));
+        frameParams.setMarginEnd(dpToPx(8));
+        frame.setLayoutParams(frameParams);
+
+        // ImageView e fotos
+        ImageView ivPhoto = new ImageView(requireContext());
+        ivPhoto.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+        ivPhoto.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        ivPhoto.setImageBitmap(bitmap);
+        ivPhoto.setTag(uri);
+
+        // Butoni X për fshirje
+        ImageView btnRemove = new ImageView(requireContext());
+        FrameLayout.LayoutParams removeParams =
+                new FrameLayout.LayoutParams(dpToPx(22), dpToPx(22));
+        removeParams.gravity = android.view.Gravity.TOP | android.view.Gravity.END;
+        btnRemove.setLayoutParams(removeParams);
+        btnRemove.setImageResource(
+                android.R.drawable.ic_menu_close_clear_cancel);
+        btnRemove.setBackgroundColor(0xCC000000);
+        btnRemove.setPadding(dpToPx(3), dpToPx(3), dpToPx(3), dpToPx(3));
+        btnRemove.setClickable(true);
+        btnRemove.setFocusable(true);
+
+        frame.addView(ivPhoto);
+        frame.addView(btnRemove);
+
+        btnRemove.setOnClickListener(v -> {
+            llPhotos.removeView(frame);
+            updatePhotoCount();
+        });
+
+        llPhotos.addView(frame);
+        updatePhotoCount();
+    }
+
+    private void updatePhotoCount() {
+        int count = llPhotos.getChildCount();
+        tvPhotoCount.setText(count + "/" + MAX_PHOTOS);
+        scrollPhotos.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+    }
+
+    private int dpToPx(int dp) {
+        return Math.round(dp * requireContext().getResources()
+                .getDisplayMetrics().density);
+    }
+
     // ─── Konverto foto ────────────────────────────────────────────────────────
 
     private Bitmap loadBitmapFromUri(Uri uri) {
@@ -317,11 +365,11 @@ public class ReportFragment extends Fragment {
             Bitmap bitmap = MediaStore.Images.Media
                     .getBitmap(requireContext().getContentResolver(), uri);
 
-            // Shkurtoje — max 600px
             int maxSize = 600;
             int w = bitmap.getWidth(), h = bitmap.getHeight();
             if (w > maxSize || h > maxSize) {
-                float scale = Math.min((float) maxSize / w, (float) maxSize / h);
+                float scale = Math.min(
+                        (float) maxSize / w, (float) maxSize / h);
                 bitmap = Bitmap.createScaledBitmap(bitmap,
                         Math.round(w * scale), Math.round(h * scale), true);
             }
@@ -336,7 +384,6 @@ public class ReportFragment extends Fragment {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 25, baos);
         byte[] bytes = baos.toByteArray();
 
-        // Kompreso më shumë nëse shumë e madhe
         if (bytes.length > 250000) {
             baos.reset();
             bitmap.compress(Bitmap.CompressFormat.JPEG, 15, baos);
@@ -344,12 +391,6 @@ public class ReportFragment extends Fragment {
         }
         return android.util.Base64.encodeToString(bytes,
                 android.util.Base64.DEFAULT);
-    }
-
-    private void updatePhotoCount() {
-        int count = photoAdapter.getPhotoCount();
-        tvPhotoCount.setText(count + "/" + MAX_PHOTOS);
-        rvPhotos.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
     }
 
     // ─── GPS ──────────────────────────────────────────────────────────────────
@@ -369,36 +410,45 @@ public class ReportFragment extends Fragment {
 
     private void getCurrentLocation() {
         tvLocation.setText("Duke marrë lokacionin...");
-        locationManager.getCurrentLocation(new LocationManager.LocationCallback2() {
-            @Override
-            public void onLocationReceived(double lat, double lng) {
-                currentLatitude  = lat;
-                currentLongitude = lng;
-                locationObtained = true;
+        locationManager.getCurrentLocation(
+                new LocationManager.LocationCallback2() {
+                    @Override
+                    public void onLocationReceived(double lat, double lng) {
+                        currentLatitude  = lat;
+                        currentLongitude = lng;
+                        locationObtained = true;
 
-                locationManager.getAddressFromCoordinates(lat, lng,
-                        new LocationManager.AddressCallback() {
-                            @Override
-                            public void onAddressReceived(String address) {
-                                if (isAdded()) requireActivity().runOnUiThread(
-                                        () -> tvLocation.setText(address));
-                            }
+                        locationManager.getAddressFromCoordinates(lat, lng,
+                                new LocationManager.AddressCallback() {
+                                    @Override
+                                    public void onAddressReceived(String address) {
+                                        if (isAdded()) {
+                                            requireActivity().runOnUiThread(
+                                                    () -> tvLocation.setText(address));
+                                        }
+                                    }
 
-                            @Override
-                            public void onAddressError() {
-                                if (isAdded()) requireActivity().runOnUiThread(
-                                        () -> tvLocation.setText(String.format(
-                                                "%.4f, %.4f", lat, lng)));
-                            }
-                        });
-            }
+                                    @Override
+                                    public void onAddressError() {
+                                        if (isAdded()) {
+                                            requireActivity().runOnUiThread(
+                                                    () -> tvLocation.setText(
+                                                            String.format("%.4f, %.4f",
+                                                                    lat, lng)));
+                                        }
+                                    }
+                                });
+                    }
 
-            @Override
-            public void onLocationError(String errorMessage) {
-                if (isAdded()) requireActivity().runOnUiThread(
-                        () -> tvLocation.setText("Lokacioni nuk u mor."));
-            }
-        });
+                    @Override
+                    public void onLocationError(String errorMessage) {
+                        if (isAdded()) {
+                            requireActivity().runOnUiThread(
+                                    () -> tvLocation.setText(
+                                            "Lokacioni nuk u mor."));
+                        }
+                    }
+                });
     }
 
     // ─── Submit ───────────────────────────────────────────────────────────────
@@ -426,13 +476,21 @@ public class ReportFragment extends Fragment {
         progressBar.setVisibility(View.VISIBLE);
         btnSubmit.setEnabled(false);
 
-        // Konverto fotot në background thread
         new Thread(() -> {
             List<String> base64Photos = new ArrayList<>();
-            for (Uri uri : photoAdapter.getPhotoUris()) {
-                Bitmap bmp = loadBitmapFromUri(uri);
-                if (bmp != null) {
-                    base64Photos.add(bitmapToBase64(bmp));
+
+            for (int i = 0; i < llPhotos.getChildCount(); i++) {
+                View child = llPhotos.getChildAt(i);
+                if (child instanceof FrameLayout) {
+                    ImageView iv = (ImageView)
+                            ((FrameLayout) child).getChildAt(0);
+                    Uri uri = (Uri) iv.getTag();
+                    if (uri != null) {
+                        Bitmap bmp = loadBitmapFromUri(uri);
+                        if (bmp != null) {
+                            base64Photos.add(bitmapToBase64(bmp));
+                        }
+                    }
                 }
             }
 
@@ -447,11 +505,13 @@ public class ReportFragment extends Fragment {
         }).start();
     }
 
+    // ─── Clear ────────────────────────────────────────────────────────────────
+
     private void clearForm() {
         spinnerCategory.setSelection(0);
         etDescription.setText("");
-        photoAdapter.getPhotoUris().clear();
-        rvPhotos.setVisibility(View.GONE);
+        llPhotos.removeAllViews();
+        scrollPhotos.setVisibility(View.GONE);
         tvPhotoCount.setText("0/" + MAX_PHOTOS);
         tvLocation.setText("Duke marrë lokacionin...");
         locationObtained = false;
