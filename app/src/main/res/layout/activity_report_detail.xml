@@ -290,13 +290,13 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:textColor="@color/green_primary"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_marginBottom="10dp" />
 
-                    <ImageView
-                        android:id="@+id/iv_photo"
+                    <!-- Foto të shumta horizontale -->
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_detail_photos"
                         android:layout_width="match_parent"
-                        android:layout_height="200dp"
-                        android:scaleType="centerCrop" />
+                        android:layout_height="200dp" />
 
                 </LinearLayout>
 

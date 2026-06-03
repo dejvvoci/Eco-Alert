@@ -29,6 +29,7 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
+import com.programimmobile.ecoalert.ui.ReportInfoWindow;
 
 import java.util.List;
 
@@ -167,30 +168,34 @@ public class MapFragment extends Fragment {
     }
 
     private void addMarkerForReport(Report report) {
-        GeoPoint point = new GeoPoint(report.getLatitude(), report.getLongitude());
+        GeoPoint point = new GeoPoint(
+                report.getLatitude(), report.getLongitude());
+
         Marker marker = new Marker(mapView);
         marker.setPosition(point);
-        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        marker.setAnchor(Marker.ANCHOR_CENTER, 1.0f);
 
-        // Titulli dhe përshkrimi i popup-it
-        marker.setTitle(report.getCategory());
-        String snippet = "";
-        if (report.getDescription() != null && !report.getDescription().isEmpty()) {
-            snippet = report.getDescription().length() > 60
-                    ? report.getDescription().substring(0, 60) + "..."
-                    : report.getDescription();
-        }
-        if (report.getConfirmations() > 0) {
-            snippet += "\n✓ " + report.getConfirmations() + " konfirmime";
-        }
-        marker.setSnippet(snippet);
+        // Marker custom me shkronjë dhe madhësi dinamike
+        MarkerDrawable markerDrawable = new MarkerDrawable(
+                requireContext(),
+                report.getCategory(),
+                report.getConfirmations());
+        marker.setIcon(markerDrawable);
 
-        // Ngjyra e markerit sipas kategorisë
-        marker.setIcon(getMarkerIcon(report.getCategory()));
+        // InfoWindow
+        ReportInfoWindow infoWindow =
+                new ReportInfoWindow(mapView, requireContext());
+        infoWindow.setReport(report);
+        marker.setInfoWindow(infoWindow);
 
-        // Klikim mbi marker — hap ReportDetailActivity
         marker.setOnMarkerClickListener((m, map) -> {
-            m.showInfoWindow();
+            org.osmdroid.views.overlay.infowindow.InfoWindow
+                    .closeAllInfoWindowsOn(map);
+            if (m.isInfoWindowShown()) {
+                m.closeInfoWindow();
+            } else {
+                m.showInfoWindow();
+            }
             return true;
         });
 

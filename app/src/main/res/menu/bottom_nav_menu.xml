@@ -17,6 +17,11 @@
         android:title="Historia" />
 
     <item
+        android:id="@+id/nav_notifications"
+        android:icon="@android:drawable/ic_dialog_info"
+        android:title="Njoftime" />
+
+    <item
         android:id="@+id/nav_profile"
         android:icon="@android:drawable/ic_menu_myplaces"
         android:title="Profili" />

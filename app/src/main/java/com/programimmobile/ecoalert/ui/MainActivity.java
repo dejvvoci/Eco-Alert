@@ -106,6 +106,8 @@ public class MainActivity extends AppCompatActivity {
                 fragment = new SentReportsFragment();
             } else if (id == R.id.nav_profile) {
                 fragment = new ProfileFragment();
+            } else if (id == R.id.nav_notifications) {
+                fragment = new NotificationsFragment();
             }
 
             if (fragment != null) {

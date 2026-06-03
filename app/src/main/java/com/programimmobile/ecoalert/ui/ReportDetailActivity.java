@@ -31,6 +31,9 @@ import org.osmdroid.views.overlay.Marker;
 
 import java.text.SimpleDateFormat;
 import java.util.Locale;
+import androidx.recyclerview.widget.RecyclerView;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ReportDetailActivity extends AppCompatActivity {
 
@@ -144,24 +147,29 @@ public class ReportDetailActivity extends AppCompatActivity {
                 getResources().getColor(colorRes, getTheme()));
 
         // Foto — Base64
-        String photoData = report.getPhotoUrl();
-        if (photoData != null && !photoData.isEmpty()) {
+        List<String> photos = report.getPhotos();
+        String legacyPhoto  = report.getPhotoUrl();
+
+// Ndërto listën e plotë
+        List<String> allPhotos = new ArrayList<>();
+        if (photos != null && !photos.isEmpty()) {
+            allPhotos.addAll(photos);
+        } else if (legacyPhoto != null && !legacyPhoto.isEmpty()
+                && !legacyPhoto.startsWith("http")) {
+            // Legacy Base64
+            allPhotos.add(legacyPhoto);
+        }
+
+        RecyclerView rvDetailPhotos = findViewById(R.id.rv_detail_photos);
+
+        if (!allPhotos.isEmpty()) {
             cardPhoto.setVisibility(View.VISIBLE);
-            new Thread(() -> {
-                try {
-                    byte[] decodedBytes = Base64.decode(photoData, Base64.DEFAULT);
-                    Bitmap bitmap = BitmapFactory.decodeByteArray(
-                            decodedBytes, 0, decodedBytes.length);
-                    runOnUiThread(() -> {
-                        if (bitmap != null) {
-                            ivPhoto.setImageBitmap(bitmap);
-                        }
-                    });
-                } catch (Exception e) {
-                    runOnUiThread(() ->
-                            cardPhoto.setVisibility(View.GONE));
-                }
-            }).start();
+            rvDetailPhotos.setLayoutManager(
+                    new androidx.recyclerview.widget.LinearLayoutManager(
+                            this,
+                            androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL,
+                            false));
+            rvDetailPhotos.setAdapter(new DetailPhotoAdapter(allPhotos));
         } else {
             cardPhoto.setVisibility(View.GONE);
         }
