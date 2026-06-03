@@ -1,6 +1,9 @@
 package com.programimmobile.ecoalert.ui;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
@@ -11,12 +14,12 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
-import com.bumptech.glide.Glide;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.programimmobile.ecoalert.R;
 import com.programimmobile.ecoalert.location.LocationManager;
+import com.programimmobile.ecoalert.model.Report;
 import com.programimmobile.ecoalert.viewmodel.AuthViewModel;
 import com.programimmobile.ecoalert.viewmodel.ReportViewModel;
 
@@ -25,6 +28,9 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
+
+import java.text.SimpleDateFormat;
+import java.util.Locale;
 
 public class ReportDetailActivity extends AppCompatActivity {
 
@@ -47,9 +53,6 @@ public class ReportDetailActivity extends AppCompatActivity {
     private MaterialCardView cardPhoto;
 
     private String reportId;
-    private String reportUserId;
-    private double latitude;
-    private double longitude;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,27 +62,29 @@ public class ReportDetailActivity extends AppCompatActivity {
 
         initViews();
         setupToolbar();
-        loadDataFromIntent();
-        setupMiniMap();
-        setupViewModel();
-        setupClickListeners();
+        setupViewModels();
+
+        reportId = getIntent().getStringExtra("report_id");
+        if (reportId != null) {
+            loadReport(reportId);
+        }
     }
 
     private void initViews() {
-        toolbar = findViewById(R.id.toolbar);
-        ivCategoryIcon = findViewById(R.id.iv_category_icon);
-        ivPhoto = findViewById(R.id.iv_photo);
-        tvCategory = findViewById(R.id.tv_category);
-        tvDate = findViewById(R.id.tv_date);
-        tvStatus = findViewById(R.id.tv_status);
-        tvDescription = findViewById(R.id.tv_description);
-        tvLocation = findViewById(R.id.tv_location);
-        tvConfirmations = findViewById(R.id.tv_confirmations);
-        btnConfirm = findViewById(R.id.btn_confirm);
-        btnDelete = findViewById(R.id.btn_delete);
-        miniMap = findViewById(R.id.mini_map);
-        cardPhoto = findViewById(R.id.card_photo);
-        locationManager = new LocationManager(this);
+        toolbar          = findViewById(R.id.toolbar);
+        ivCategoryIcon   = findViewById(R.id.iv_category_icon);
+        ivPhoto          = findViewById(R.id.iv_photo);
+        tvCategory       = findViewById(R.id.tv_category);
+        tvDate           = findViewById(R.id.tv_date);
+        tvStatus         = findViewById(R.id.tv_status);
+        tvDescription    = findViewById(R.id.tv_description);
+        tvLocation       = findViewById(R.id.tv_location);
+        tvConfirmations  = findViewById(R.id.tv_confirmations);
+        btnConfirm       = findViewById(R.id.btn_confirm);
+        btnDelete        = findViewById(R.id.btn_delete);
+        miniMap          = findViewById(R.id.mini_map);
+        cardPhoto        = findViewById(R.id.card_photo);
+        locationManager  = new LocationManager(this);
     }
 
     private void setupToolbar() {
@@ -89,44 +94,83 @@ public class ReportDetailActivity extends AppCompatActivity {
         }
     }
 
-    private void loadDataFromIntent() {
-        reportId = getIntent().getStringExtra("report_id");
-        reportUserId = getIntent().getStringExtra("report_user_id");
-        String category = getIntent().getStringExtra("category");
-        String description = getIntent().getStringExtra("description");
-        latitude = getIntent().getDoubleExtra("latitude", 0.0);
-        longitude = getIntent().getDoubleExtra("longitude", 0.0);
-        String status = getIntent().getStringExtra("status");
-        int confirmations = getIntent().getIntExtra("confirmations", 0);
-        String photoUrl = getIntent().getStringExtra("photo_url");
+    private void setupViewModels() {
+        reportViewModel = new ViewModelProvider(this).get(ReportViewModel.class);
+        authViewModel   = new ViewModelProvider(this).get(AuthViewModel.class);
 
-        // Të dhënat bazë
-        tvCategory.setText(category != null ? category : "—");
-        tvDescription.setText(description != null && !description.isEmpty()
-                ? description : "Pa përshkrim.");
-        tvStatus.setText(status != null ? status : "E re");
-        tvConfirmations.setText(confirmations + " persona e kanë konfirmuar");
+        reportViewModel.getError().observe(this, error -> {
+            if (error != null) {
+                Toast.makeText(this, error, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void loadReport(String id) {
+        reportViewModel.getReportById(id).observe(this, report -> {
+            if (report != null) {
+                populateUI(report);
+            }
+        });
+    }
+
+    private void populateUI(Report report) {
+        // Kategoria
+        tvCategory.setText(report.getCategory() != null
+                ? report.getCategory() : "—");
+
+        // Përshkrimi
+        tvDescription.setText(report.getDescription() != null
+                && !report.getDescription().isEmpty()
+                ? report.getDescription() : "Pa përshkrim.");
+
+        // Statusi
+        tvStatus.setText(report.getStatus() != null
+                ? report.getStatus() : "E re");
+
+        // Konfirmimet
+        tvConfirmations.setText(report.getConfirmations()
+                + " persona e kanë konfirmuar");
+
+        // Data
+        if (report.getTimestamp() != null) {
+            SimpleDateFormat sdf = new SimpleDateFormat(
+                    "dd/MM/yyyy HH:mm", Locale.getDefault());
+            tvDate.setText(sdf.format(report.getTimestamp()));
+        }
 
         // Ngjyra e ikonës
-        int colorRes = getCategoryColor(category);
+        int colorRes = getCategoryColor(report.getCategory());
         ivCategoryIcon.setColorFilter(
                 getResources().getColor(colorRes, getTheme()));
 
-        // Foto — shfaq nëse ekziston
-        if (photoUrl != null && !photoUrl.isEmpty()) {
+        // Foto — Base64
+        String photoData = report.getPhotoUrl();
+        if (photoData != null && !photoData.isEmpty()) {
             cardPhoto.setVisibility(View.VISIBLE);
-            Glide.with(this)
-                    .load(photoUrl)
-                    .placeholder(android.R.drawable.ic_menu_gallery)
-                    .error(android.R.drawable.ic_menu_close_clear_cancel)
-                    .into(ivPhoto);
+            new Thread(() -> {
+                try {
+                    byte[] decodedBytes = Base64.decode(photoData, Base64.DEFAULT);
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(
+                            decodedBytes, 0, decodedBytes.length);
+                    runOnUiThread(() -> {
+                        if (bitmap != null) {
+                            ivPhoto.setImageBitmap(bitmap);
+                        }
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(() ->
+                            cardPhoto.setVisibility(View.GONE));
+                }
+            }).start();
         } else {
             cardPhoto.setVisibility(View.GONE);
         }
 
-        // Adresa nga koordinatat
-        if (latitude != 0.0 && longitude != 0.0) {
-            locationManager.getAddressFromCoordinates(latitude, longitude,
+        // Adresa
+        double lat = report.getLatitude();
+        double lng = report.getLongitude();
+        if (lat != 0.0 && lng != 0.0) {
+            locationManager.getAddressFromCoordinates(lat, lng,
                     new LocationManager.AddressCallback() {
                         @Override
                         public void onAddressReceived(String address) {
@@ -136,15 +180,44 @@ public class ReportDetailActivity extends AppCompatActivity {
                         @Override
                         public void onAddressError() {
                             runOnUiThread(() -> tvLocation.setText(
-                                    String.format("%.4f, %.4f", latitude, longitude)));
+                                    String.format("%.4f, %.4f", lat, lng)));
                         }
                     });
+            setupMiniMap(lat, lng);
         }
+
+        // Butoni Delete — vetëm pronari
+        String currentUserId = authViewModel.getCurrentUserId();
+        if (currentUserId != null && currentUserId.equals(report.getUserId())) {
+            btnDelete.setVisibility(View.VISIBLE);
+        } else {
+            btnDelete.setVisibility(View.GONE);
+        }
+
+        // Click listeners
+        btnConfirm.setOnClickListener(v -> {
+            reportViewModel.confirmReport(report.getId());
+            Toast.makeText(this,
+                    "Faleminderit për konfirmimin!", Toast.LENGTH_SHORT).show();
+            btnConfirm.setEnabled(false);
+            btnConfirm.setText("U konfirmua ✓");
+        });
+
+        btnDelete.setOnClickListener(v ->
+                new AlertDialog.Builder(this)
+                        .setTitle("Fshi Raportin")
+                        .setMessage("A je i sigurt? Ky veprim nuk mund të zhbëhet.")
+                        .setPositiveButton("Fshi", (dialog, which) -> {
+                            reportViewModel.deleteReport(report.getId());
+                            Toast.makeText(this,
+                                    "Raporti u fshi.", Toast.LENGTH_SHORT).show();
+                            finish();
+                        })
+                        .setNegativeButton("Anulo", null)
+                        .show());
     }
 
-    private void setupMiniMap() {
-        if (latitude == 0.0 && longitude == 0.0) return;
-
+    private void setupMiniMap(double latitude, double longitude) {
         miniMap.setTileSource(TileSourceFactory.MAPNIK);
         miniMap.setMultiTouchControls(false);
         miniMap.setClickable(false);
@@ -158,56 +231,6 @@ public class ReportDetailActivity extends AppCompatActivity {
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
         miniMap.getOverlays().add(marker);
         miniMap.invalidate();
-    }
-
-    private void setupViewModel() {
-        reportViewModel = new ViewModelProvider(this).get(ReportViewModel.class);
-        authViewModel = new ViewModelProvider(this).get(AuthViewModel.class);
-
-        // Shfaq butonin delete vetëm nëse është pronari
-        String currentUserId = authViewModel.getCurrentUserId();
-        if (currentUserId != null && currentUserId.equals(reportUserId)) {
-            btnDelete.setVisibility(View.VISIBLE);
-        } else {
-            btnDelete.setVisibility(View.GONE);
-        }
-
-        reportViewModel.getError().observe(this, error -> {
-            if (error != null) {
-                Toast.makeText(this, error, Toast.LENGTH_LONG).show();
-            }
-        });
-    }
-
-    private void setupClickListeners() {
-        // Konfirmo raportin
-        btnConfirm.setOnClickListener(v -> {
-            if (reportId != null) {
-                reportViewModel.confirmReport(reportId);
-                Toast.makeText(this,
-                        "Faleminderit për konfirmimin!", Toast.LENGTH_SHORT).show();
-                btnConfirm.setEnabled(false);
-                btnConfirm.setText("U konfirmua ✓");
-            }
-        });
-
-        // Fshi raportin — vetëm pronari
-        btnDelete.setOnClickListener(v -> {
-            new AlertDialog.Builder(this)
-                    .setTitle("Fshi Raportin")
-                    .setMessage("A je i sigurt që dëshiron ta fshish këtë raport? " +
-                            "Ky veprim nuk mund të zhbëhet.")
-                    .setPositiveButton("Fshi", (dialog, which) -> {
-                        if (reportId != null) {
-                            reportViewModel.deleteReport(reportId);
-                            Toast.makeText(this,
-                                    "Raporti u fshi.", Toast.LENGTH_SHORT).show();
-                            finish();
-                        }
-                    })
-                    .setNegativeButton("Anulo", null)
-                    .show();
-        });
     }
 
     private int getCategoryColor(String category) {
@@ -230,21 +253,7 @@ public class ReportDetailActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        miniMap.onResume();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        miniMap.onPause();
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        miniMap.onDetach();
-    }
+    @Override protected void onResume()  { super.onResume();  miniMap.onResume();  }
+    @Override protected void onPause()   { super.onPause();   miniMap.onPause();   }
+    @Override protected void onDestroy() { super.onDestroy(); miniMap.onDetach();  }
 }

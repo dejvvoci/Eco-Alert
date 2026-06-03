@@ -10,6 +10,7 @@ import com.programimmobile.ecoalert.model.Report;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.programimmobile.ecoalert.model.SentReport;
 
 public class ReportRepository {
 
@@ -140,6 +141,56 @@ public class ReportRepository {
                         List<Report> reports = new ArrayList<>();
                         reports.addAll(snapshots.toObjects(Report.class));
                         liveData.postValue(reports);
+                    }
+                });
+    }
+
+    public void getReportById(String reportId,
+                              MutableLiveData<Report> liveData) {
+        db.collection(COLLECTION_REPORTS)
+                .document(reportId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        Report report = documentSnapshot.toObject(Report.class);
+                        liveData.postValue(report);
+                    }
+                })
+                .addOnFailureListener(e ->
+                        errorLiveData.postValue(e.getMessage()));
+    }
+
+    public void updateReportStatus(String reportId, String status,
+                                   ActionCallback callback) {
+        db.collection(COLLECTION_REPORTS)
+                .document(reportId)
+                .update("status", status)
+                .addOnSuccessListener(unused -> callback.onSuccess())
+                .addOnFailureListener(e -> callback.onFailure(e.getMessage()));
+    }
+    // Shto këto konstante
+    private static final String COLLECTION_SENT = "sent_reports";
+
+// Shto këto metoda
+
+    public void saveSentReport(SentReport sentReport,
+                               ActionCallback callback) {
+        db.collection(COLLECTION_SENT)
+                .add(sentReport)
+                .addOnSuccessListener(ref -> callback.onSuccess())
+                .addOnFailureListener(e -> callback.onFailure(e.getMessage()));
+    }
+
+    public void getSentReports(String adminId,
+                               MutableLiveData<List<SentReport>> liveData) {
+        db.collection(COLLECTION_SENT)
+                .whereEqualTo("adminId", adminId)
+                .orderBy("sentAt", Query.Direction.DESCENDING)
+                .addSnapshotListener((snapshots, error) -> {
+                    if (snapshots != null) {
+                        List<SentReport> list = new ArrayList<>();
+                        list.addAll(snapshots.toObjects(SentReport.class));
+                        liveData.postValue(list);
                     }
                 });
     }

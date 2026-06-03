@@ -2,17 +2,17 @@ package com.programimmobile.ecoalert.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.MenuItem;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.programimmobile.ecoalert.R;
+import com.programimmobile.ecoalert.repository.UserRepository;
 import com.programimmobile.ecoalert.utils.AppPreferences;
 import com.programimmobile.ecoalert.viewmodel.AuthViewModel;
 
@@ -21,6 +21,7 @@ public class MainActivity extends AppCompatActivity {
     private AuthViewModel authViewModel;
     private BottomNavigationView bottomNavigation;
     private MaterialToolbar toolbar;
+    private boolean isAdmin = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,11 +37,7 @@ public class MainActivity extends AppCompatActivity {
 
         initViews();
         setupToolbar();
-        setupBottomNavigation();
-
-        if (savedInstanceState == null) {
-            loadFragment(new ReportFragment());
-        }
+        checkRoleAndSetup(savedInstanceState);
     }
 
     private void initViews() {
@@ -50,7 +47,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupToolbar() {
         setSupportActionBar(toolbar);
-
         toolbar.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == R.id.action_profile) {
                 showProfileMenu();
@@ -58,83 +54,57 @@ public class MainActivity extends AppCompatActivity {
             }
             return false;
         });
-
-        // Shfaq emrin e përdoruesit
-        updateToolbarSubtitle();
     }
 
-    private void updateToolbarSubtitle() {
-        if (authViewModel.isAnonymous()) {
-            toolbar.setSubtitle("Anonim");
-        } else {
-            var user = authViewModel.getCurrentUser().getValue();
-            if (user != null && user.getEmail() != null) {
-                toolbar.setSubtitle(user.getEmail());
-            }
+    private void checkRoleAndSetup(Bundle savedInstanceState) {
+        String userId = authViewModel.getCurrentUserId();
+        if (userId == null) {
+            goToAuth();
+            return;
         }
-        toolbar.setSubtitleTextColor(
-                getResources().getColor(R.color.green_light, getTheme()));
-    }
 
-    private void showProfileMenu() {
-        String userInfo = authViewModel.isAnonymous()
-                ? "Përdorues Anonim"
-                : (authViewModel.getCurrentUser().getValue() != null
-                ? authViewModel.getCurrentUser().getValue().getEmail()
-                : "");
+        MutableLiveData<Boolean> isAdminLiveData = new MutableLiveData<>();
+        UserRepository.getInstance().checkIsAdmin(userId, isAdminLiveData);
 
-        String[] options = authViewModel.isAnonymous()
-                ? new String[]{"Krijo llogari", "Dil / Ndrysho llogari"}
-                : new String[]{"Shiko Profilin", "Dil nga llogaria"};
-
-        new AlertDialog.Builder(this)
-                .setTitle(userInfo)
-                .setItems(options, (dialog, which) -> {
-                    if (authViewModel.isAnonymous()) {
-                        if (which == 0) {
-                            // Kalo te ProfileFragment për upgrade
-                            loadFragment(new ProfileFragment());
-                            bottomNavigation.setSelectedItemId(R.id.nav_profile);
-                        } else {
-                            showLogoutDialog();
-                        }
-                    } else {
-                        if (which == 0) {
-                            loadFragment(new ProfileFragment());
-                            bottomNavigation.setSelectedItemId(R.id.nav_profile);
-                        } else {
-                            showLogoutDialog();
-                        }
-                    }
-                })
-                .show();
-    }
-
-    private void showLogoutDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle("Dil nga llogaria")
-                .setMessage("A je i sigurt që dëshiron të dalësh?")
-                .setPositiveButton("Dil", (dialog, which) -> {
-                    new AppPreferences(this).setAuthCompleted(false);
-                    authViewModel.signOut(this);
-                    goToAuth();
-                })
-                .setNegativeButton("Anulo", null)
-                .show();
+        isAdminLiveData.observe(this, admin -> {
+            isAdmin = Boolean.TRUE.equals(admin);
+            setupBottomNavigation();
+            updateToolbarSubtitle();
+            if (savedInstanceState == null) {
+                if (isAdmin) {
+                    loadFragment(new AdminReportsFragment());
+                    bottomNavigation.setSelectedItemId(R.id.nav_admin_reports);
+                } else {
+                    loadFragment(new ReportFragment());
+                    bottomNavigation.setSelectedItemId(R.id.nav_report);
+                }
+            }
+        });
     }
 
     private void setupBottomNavigation() {
+        bottomNavigation.getMenu().clear();
+        if (isAdmin) {
+            bottomNavigation.inflateMenu(R.menu.bottom_nav_admin);
+        } else {
+            bottomNavigation.inflateMenu(R.menu.bottom_nav_menu);
+        }
+
         bottomNavigation.setOnItemSelectedListener(item -> {
             Fragment fragment = null;
-            int itemId = item.getItemId();
+            int id = item.getItemId();
 
-            if (itemId == R.id.nav_report) {
+            if (id == R.id.nav_report) {
                 fragment = new ReportFragment();
-            } else if (itemId == R.id.nav_map) {
+            } else if (id == R.id.nav_admin_reports) {
+                fragment = new AdminReportsFragment();
+            } else if (id == R.id.nav_map) {
                 fragment = new MapFragment();
-            } else if (itemId == R.id.nav_history) {
+            } else if (id == R.id.nav_history) {
                 fragment = new HistoryFragment();
-            } else if (itemId == R.id.nav_profile) {
+            } else if (id == R.id.nav_sent) {
+                fragment = new SentReportsFragment();
+            } else if (id == R.id.nav_profile) {
                 fragment = new ProfileFragment();
             }
 
@@ -146,12 +116,48 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void loadFragment(Fragment fragment) {
+    private void updateToolbarSubtitle() {
+        String subtitle = isAdmin ? "Admin" :
+                (authViewModel.isAnonymous() ? "Anonim" : "");
+        toolbar.setSubtitle(subtitle);
+        toolbar.setSubtitleTextColor(
+                getResources().getColor(R.color.green_light, getTheme()));
+    }
+
+    private void showProfileMenu() {
+        String[] options = {"Shiko Profilin", "Dil nga llogaria"};
+        new AlertDialog.Builder(this)
+                .setTitle(isAdmin ? "Administrator" : "Profili")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        loadFragment(new ProfileFragment());
+                    } else {
+                        showLogoutDialog();
+                    }
+                }).show();
+    }
+
+    private void showLogoutDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Dil nga llogaria")
+                .setMessage("A je i sigurt?")
+                .setPositiveButton("Dil", (d, w) -> {
+                    new AppPreferences(this).setAuthCompleted(false);
+                    authViewModel.signOut(this);
+                    goToAuth();
+                })
+                .setNegativeButton("Anulo", null)
+                .show();
+    }
+
+    public void loadFragment(Fragment fragment) {
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.fragment_container, fragment)
                 .commit();
     }
+
+    public boolean getIsAdmin() { return isAdmin; }
 
     public void goToAuth() {
         Intent intent = new Intent(this, AuthActivity.class);

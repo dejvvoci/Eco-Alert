@@ -268,9 +268,10 @@ public class ReportFragment extends Fragment {
     }
 
     private void submitReport() {
-        if (!locationObtained || (currentLatitude == 0.0 && currentLongitude == 0.0)) {
+        if (!locationObtained ||
+                (currentLatitude == 0.0 && currentLongitude == 0.0)) {
             Toast.makeText(requireContext(),
-                    "Lokacioni është i detyrueshëm. Zgjidh lokacionin para dërgimit.",
+                    "Lokacioni është i detyrueshëm.",
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -282,7 +283,7 @@ public class ReportFragment extends Fragment {
 
         if (userId == null) {
             Toast.makeText(requireContext(),
-                    "Gabim autentifikimi. Provo përsëri.", Toast.LENGTH_SHORT).show();
+                    "Gabim autentifikimi.", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -290,78 +291,24 @@ public class ReportFragment extends Fragment {
         btnSubmit.setEnabled(false);
 
         if (selectedPhotoUri != null) {
-            // Ngarko foton në Firebase Storage pastaj dërgo raportin
-            uploadPhotoAndSubmit(userId, category, description);
-        } else {
-            // Dërgo raportin pa foto
-            Report report = new Report(userId, category, description,
-                    currentLatitude, currentLongitude);
-            reportViewModel.addReport(report);
-        }
-    }
+            // Konverto foton në background thread
+            new Thread(() -> {
+                String base64Photo = convertImageToBase64(selectedPhotoUri);
 
-    private void uploadPhotoAndSubmit(String userId, String category, String description) {
-        com.google.firebase.storage.FirebaseStorage storage =
-                com.google.firebase.storage.FirebaseStorage.getInstance();
-        com.google.firebase.storage.StorageReference photoRef =
-                storage.getReference()
-                        .child("reports")
-                        .child(userId)
-                        .child(System.currentTimeMillis() + ".jpg");
-
-        // Kontrollo nëse URI është e aksesueshme
-        try {
-            requireContext().getContentResolver()
-                    .openInputStream(selectedPhotoUri).close();
-        } catch (Exception e) {
-            Toast.makeText(requireContext(),
-                    "Foto nuk është e aksesueshme: " + e.getMessage(),
-                    Toast.LENGTH_LONG).show();
-            // Dërgo raportin pa foto
-            Report report = new Report(userId, category, description,
-                    currentLatitude, currentLongitude);
-            reportViewModel.addReport(report);
-            return;
-        }
-
-        Toast.makeText(requireContext(),
-                "Duke ngarkuar foton...", Toast.LENGTH_SHORT).show();
-
-        photoRef.putFile(selectedPhotoUri)
-                .addOnProgressListener(snapshot -> {
-                    double progress = (100.0 * snapshot.getBytesTransferred())
-                            / snapshot.getTotalByteCount();
-                    // Opsionale: shfaq progress
-                })
-                .addOnSuccessListener(taskSnapshot -> {
-                    photoRef.getDownloadUrl()
-                            .addOnSuccessListener(uri -> {
-                                Report report = new Report(userId, category,
-                                        description, currentLatitude, currentLongitude);
-                                report.setPhotoUrl(uri.toString());
-                                reportViewModel.addReport(report);
-                                Toast.makeText(requireContext(),
-                                        "Foto u ngarkua me sukses!",
-                                        Toast.LENGTH_SHORT).show();
-                            })
-                            .addOnFailureListener(e -> {
-                                Toast.makeText(requireContext(),
-                                        "URL e fotos dështoi: " + e.getMessage(),
-                                        Toast.LENGTH_LONG).show();
-                                Report report = new Report(userId, category,
-                                        description, currentLatitude, currentLongitude);
-                                reportViewModel.addReport(report);
-                            });
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(requireContext(),
-                            "Upload dështoi: " + e.getMessage(),
-                            Toast.LENGTH_LONG).show();
-                    // Dërgo pa foto
-                    Report report = new Report(userId, category,
-                            description, currentLatitude, currentLongitude);
+                requireActivity().runOnUiThread(() -> {
+                    Report report = new Report(userId, category, description,
+                            currentLatitude, currentLongitude);
+                    if (base64Photo != null) {
+                        report.setPhotoUrl(base64Photo);
+                    }
                     reportViewModel.addReport(report);
                 });
+            }).start();
+        } else {
+            Report report = new Report(userId, category, description,
+                    currentLatitude, currentLongitude);
+            reportViewModel.addReport(report);
+        }
     }
 
     private void clearForm() {
@@ -372,6 +319,48 @@ public class ReportFragment extends Fragment {
         tvLocation.setText("Duke marrë lokacionin...");
         locationObtained = false;
         checkAndGetLocation();
+    }
+
+    private String convertImageToBase64(Uri imageUri) {
+        try {
+            android.graphics.Bitmap bitmap =
+                    android.provider.MediaStore.Images.Media
+                            .getBitmap(requireContext().getContentResolver(), imageUri);
+
+            // Shkurtoje imazhin — max 800px për të qëndruar nën 1MB
+            int maxSize = 800;
+            int width  = bitmap.getWidth();
+            int height = bitmap.getHeight();
+
+            if (width > maxSize || height > maxSize) {
+                float scale = Math.min(
+                        (float) maxSize / width,
+                        (float) maxSize / height);
+                width  = Math.round(width  * scale);
+                height = Math.round(height * scale);
+                bitmap = android.graphics.Bitmap.createScaledBitmap(
+                        bitmap, width, height, true);
+            }
+
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            // Kompreso në JPEG me cilësi 60% — balancë mes madhësie dhe cilësisë
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 60, baos);
+            byte[] imageBytes = baos.toByteArray();
+
+            // Kontrollo madhësinë — Firestore max 1MB për dokument
+            if (imageBytes.length > 900000) {
+                // Kompreso më shumë nëse është shumë e madhe
+                baos.reset();
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 30, baos);
+                imageBytes = baos.toByteArray();
+            }
+
+            return android.util.Base64.encodeToString(
+                    imageBytes, android.util.Base64.DEFAULT);
+
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override

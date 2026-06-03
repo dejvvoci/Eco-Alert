@@ -11,6 +11,9 @@ import com.programimmobile.ecoalert.model.Report;
 import com.programimmobile.ecoalert.repository.ReportRepository;
 
 import java.util.List;
+import com.programimmobile.ecoalert.model.Notification;
+import com.programimmobile.ecoalert.repository.NotificationRepository;
+import com.programimmobile.ecoalert.model.SentReport;
 
 public class ReportViewModel extends AndroidViewModel {
 
@@ -118,6 +121,12 @@ public class ReportViewModel extends AndroidViewModel {
         });
     }
 
+    public LiveData<Report> getReportById(String reportId) {
+        MutableLiveData<Report> reportLiveData = new MutableLiveData<>();
+        repository.getReportById(reportId, reportLiveData);
+        return reportLiveData;
+    }
+
     // ─── Reset i statusit pas dërgimit ────────────────────────────────────────
 
     public void resetSubmittedStatus() {
@@ -130,5 +139,88 @@ public class ReportViewModel extends AndroidViewModel {
     protected void onCleared() {
         super.onCleared();
         repository.stopListening();
+    }
+
+    // Shto këto fusha në krye të klasës
+    private final NotificationRepository notificationRepository =
+            NotificationRepository.getInstance();
+
+// Shto këto metoda
+
+    public void approveReport(Report report) {
+        // 1 — Ndrysho statusin
+        repository.updateReportStatus(report.getId(), "I aprovuar",
+                new ReportRepository.ActionCallback() {
+                    @Override
+                    public void onSuccess() {
+                        // 2 — Dërgo notifikim
+                        Notification notification = new Notification(
+                                report.getUserId(),
+                                report.getId(),
+                                report.getCategory(),
+                                Notification.TYPE_APPROVED,
+                                "Raporti juaj për '" + report.getCategory()
+                                        + "' u aprovua nga admini. Faleminderit!"
+                        );
+                        notificationRepository.sendNotification(
+                                notification, new ReportRepository.ActionCallback() {
+                                    @Override public void onSuccess() {}
+                                    @Override public void onFailure(String e) {}
+                                });
+                    }
+                    @Override
+                    public void onFailure(String errorMessage) {
+                        errorLiveData.postValue(errorMessage);
+                    }
+                });
+    }
+
+    public void rejectReport(Report report, String reason) {
+        // 1 — Ndrysho statusin
+        repository.updateReportStatus(report.getId(), "I refuzuar",
+                new ReportRepository.ActionCallback() {
+                    @Override
+                    public void onSuccess() {
+                        // 2 — Dërgo notifikim
+                        String message = "Raporti juaj për '"
+                                + report.getCategory() + "' u refuzua."
+                                + (reason != null && !reason.isEmpty()
+                                ? " Arsyeja: " + reason : "");
+                        Notification notification = new Notification(
+                                report.getUserId(),
+                                report.getId(),
+                                report.getCategory(),
+                                Notification.TYPE_REJECTED,
+                                message
+                        );
+                        notificationRepository.sendNotification(
+                                notification, new ReportRepository.ActionCallback() {
+                                    @Override public void onSuccess() {}
+                                    @Override public void onFailure(String e) {}
+                                });
+                    }
+                    @Override
+                    public void onFailure(String errorMessage) {
+                        errorLiveData.postValue(errorMessage);
+                    }
+                });
+    }
+
+    private final MutableLiveData<List<SentReport>> sentReportsLiveData
+            = new MutableLiveData<>();
+
+    public LiveData<List<SentReport>> getSentReports(String adminId) {
+        repository.getSentReports(adminId, sentReportsLiveData);
+        return sentReportsLiveData;
+    }
+
+    public void saveSentReport(SentReport sentReport) {
+        repository.saveSentReport(sentReport,
+                new ReportRepository.ActionCallback() {
+                    @Override public void onSuccess() {}
+                    @Override public void onFailure(String e) {
+                        errorLiveData.postValue(e);
+                    }
+                });
     }
 }
