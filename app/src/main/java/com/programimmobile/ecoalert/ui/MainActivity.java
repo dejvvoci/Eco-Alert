@@ -127,16 +127,38 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showProfileMenu() {
-        String[] options = {"Shiko Profilin", "Dil nga llogaria"};
-        new AlertDialog.Builder(this)
-                .setTitle(isAdmin ? "Administrator" : "Profili")
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) {
+        if (authViewModel.isAnonymous()) {
+            // User anonim — vetëm opsioni për të krijuar llogari
+            new AlertDialog.Builder(this)
+                    .setTitle("Përdorues Anonim")
+                    .setMessage("Nëse dilni pa krijuar llogari, " +
+                            "raportet tuaja do humbasin.\n\n" +
+                            "Krijoni llogari për t'i ruajtur.")
+                    .setPositiveButton("Krijo Llogari", (d, w) -> {
                         loadFragment(new ProfileFragment());
-                    } else {
-                        showLogoutDialog();
-                    }
-                }).show();
+                        bottomNavigation.setSelectedItemId(R.id.nav_profile);
+                    })
+                    .setNegativeButton("Mbyll", null)
+                    .show();
+        } else {
+            // User me llogari — opsion normal
+            String[] options = {"Shiko Profilin", "Dil nga llogaria"};
+            new AlertDialog.Builder(this)
+                    .setTitle(authViewModel.getCurrentUser().getValue() != null
+                            ? authViewModel.getCurrentUser()
+                            .getValue().getEmail()
+                            : "Profili")
+                    .setItems(options, (dialog, which) -> {
+                        if (which == 0) {
+                            loadFragment(new ProfileFragment());
+                            bottomNavigation.setSelectedItemId(
+                                    R.id.nav_profile);
+                        } else {
+                            showLogoutDialog();
+                        }
+                    })
+                    .show();
+        }
     }
 
     private void showLogoutDialog() {

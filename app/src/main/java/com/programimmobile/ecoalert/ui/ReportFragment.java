@@ -154,7 +154,7 @@ public class ReportFragment extends Fragment {
                                     String.format("%.4f, %.4f",
                                             currentLatitude, currentLongitude));
                             tvLocation.setTextColor(ContextCompat.getColor(
-                                    requireContext(), R.color.black));
+                                    requireContext(), R.color.green_primary_dark));
                         }
                     });
 
@@ -281,6 +281,13 @@ public class ReportFragment extends Fragment {
     private void openCamera() {
         try {
             File photoFile = createImageFile();
+            if (photoFile == null) {
+                Toast.makeText(requireContext(),
+                        "Gabim gjatë krijimit të skedarit.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             cameraPhotoUri = FileProvider.getUriForFile(
                     requireContext(),
                     requireContext().getPackageName() + ".fileprovider",
@@ -288,21 +295,38 @@ public class ReportFragment extends Fragment {
 
             Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, cameraPhotoUri);
+            cameraIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            cameraIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            // Hiq resolveActivity — launch direkt
             cameraLauncher.launch(cameraIntent);
-        } catch (IOException e) {
+
+        } catch (Exception e) {
             Toast.makeText(requireContext(),
-                    "Gabim gjatë hapjes së kamerës.",
-                    Toast.LENGTH_SHORT).show();
+                    "Gabim: " + e.getMessage(),
+                    Toast.LENGTH_LONG).show();
         }
     }
 
-    private File createImageFile() throws IOException {
-        String timeStamp = new SimpleDateFormat(
-                "yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
-        String imageFileName = "PHOTO_" + timeStamp + "_";
-        File storageDir = requireContext().getExternalCacheDir();
-        return File.createTempFile(imageFileName, ".jpg", storageDir);
+    private File createImageFile() {
+        try {
+            String timeStamp = new SimpleDateFormat(
+                    "yyyyMMdd_HHmmss", Locale.getDefault())
+                    .format(new Date());
+            String fileName = "PHOTO_" + timeStamp + "_";
+
+            // Provo cache internal — më i sigurt
+            File storageDir = requireContext().getCacheDir();
+            File imageFile = File.createTempFile(
+                    fileName, ".jpg", storageDir);
+
+            return imageFile;
+        } catch (IOException e) {
+            return null;
+        }
     }
+
+
 
     // ─── Foto Layout ──────────────────────────────────────────────────────────
 
@@ -423,18 +447,22 @@ public class ReportFragment extends Fragment {
                                     @Override
                                     public void onAddressReceived(String address) {
                                         if (isAdded()) {
-                                            requireActivity().runOnUiThread(
-                                                    () -> tvLocation.setText(address));
+                                            requireActivity().runOnUiThread(() -> {
+                                                tvLocation.setText(address);
+                                                tvLocation.setTextColor(
+                                                        ContextCompat.getColor(requireContext(), R.color.green_primary_dark));
+                                            });
                                         }
                                     }
 
                                     @Override
                                     public void onAddressError() {
                                         if (isAdded()) {
-                                            requireActivity().runOnUiThread(
-                                                    () -> tvLocation.setText(
-                                                            String.format("%.4f, %.4f",
-                                                                    lat, lng)));
+                                            requireActivity().runOnUiThread(() -> {
+                                                tvLocation.setText(String.format("%.4f, %.4f", lat, lng));
+                                                tvLocation.setTextColor(
+                                                        ContextCompat.getColor(requireContext(), R.color.green_primary_dark));
+                                            });
                                         }
                                     }
                                 });

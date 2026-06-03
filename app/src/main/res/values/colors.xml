@@ -21,4 +21,10 @@
     <color name="black">#000000</color>
     <color name="gray_light">#F5F5F5</color>
     <color name="gray_medium">#9E9E9E</color>
+
+    <!-- Shto këto në fund, para </resources> -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="card_background">#FFFFFF</color>
+    <color name="input_background">#F5F5F5</color>
 </resources>

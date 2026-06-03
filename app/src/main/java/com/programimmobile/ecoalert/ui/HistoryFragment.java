@@ -34,6 +34,7 @@ public class HistoryFragment extends Fragment {
     private ProgressBar progressBar;
     private LinearLayout layoutEmpty;
     private ReportAdapter adapter;
+    private String currentUserId = null;
 
     @Nullable
     @Override
@@ -44,13 +45,16 @@ public class HistoryFragment extends Fragment {
     }
 
     @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+    public void onViewCreated(@NonNull View view,
+                              @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
         initViews(view);
         setupViewModels();
         setupRecyclerView();
         setupSwipeToDelete();
+
+        currentUserId = authViewModel.getCurrentUserId();
     }
 
     private void initViews(View view) {
@@ -66,29 +70,15 @@ public class HistoryFragment extends Fragment {
 
     private void setupRecyclerView() {
         adapter = new ReportAdapter(report -> {
-            Intent intent = new Intent(requireContext(), ReportDetailActivity.class);
+            Intent intent = new Intent(requireContext(),
+                    ReportDetailActivity.class);
             intent.putExtra("report_id", report.getId());
-            intent.putExtra("category", report.getCategory());
-            intent.putExtra("description", report.getDescription());
-            intent.putExtra("latitude", report.getLatitude());
-            intent.putExtra("longitude", report.getLongitude());
-            intent.putExtra("status", report.getStatus());
-            intent.putExtra("confirmations", report.getConfirmations());
-            intent.putExtra("photo_url", report.getPhotoUrl());
-            intent.putExtra("report_user_id", report.getUserId());
             startActivity(intent);
         });
 
-        recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        recyclerView.setLayoutManager(
+                new LinearLayoutManager(requireContext()));
         recyclerView.setAdapter(adapter);
-
-        // Observe raportet e përdoruesit
-        String userId = authViewModel.getCurrentUserId();
-        if (userId != null) {
-            progressBar.setVisibility(View.VISIBLE);
-            reportViewModel.getUserReports(userId).observe(getViewLifecycleOwner(),
-                    this::updateUI);
-        }
     }
 
     private void updateUI(List<Report> reports) {
@@ -140,5 +130,51 @@ public class HistoryFragment extends Fragment {
                 };
 
         new ItemTouchHelper(swipeCallback).attachToRecyclerView(recyclerView);
+    }
+
+    private void loadUserReports() {
+        if (currentUserId == null) return;
+
+        progressBar.setVisibility(View.VISIBLE);
+
+        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                .collection("reports")
+                .whereEqualTo("userId", currentUserId)
+                .get()
+                .addOnSuccessListener(snapshots -> {
+                    if (!isAdded()) return;
+                    progressBar.setVisibility(View.GONE);
+
+                    if (snapshots == null || snapshots.isEmpty()) {
+                        updateUI(new java.util.ArrayList<>());
+                        return;
+                    }
+
+                    java.util.List<com.programimmobile.ecoalert.model.Report> reports =
+                            new java.util.ArrayList<>();
+                    reports.addAll(snapshots.toObjects(
+                            com.programimmobile.ecoalert.model.Report.class));
+
+                    // Rendo në Java — pa nevojë për index
+                    reports.sort((a, b) -> {
+                        if (a.getTimestamp() == null) return 1;
+                        if (b.getTimestamp() == null) return -1;
+                        return b.getTimestamp().compareTo(a.getTimestamp());
+                    });
+
+                    updateUI(reports);
+                })
+                .addOnFailureListener(e -> {
+                    if (!isAdded()) return;
+                    progressBar.setVisibility(View.GONE);
+                    updateUI(new java.util.ArrayList<>());
+                });
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Rifresho çdo herë që faqja bëhet aktive
+        loadUserReports();
     }
 }

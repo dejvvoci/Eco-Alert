@@ -8,10 +8,9 @@
     android:layout_marginEnd="8dp"
     android:layout_marginTop="6dp"
     android:layout_marginBottom="6dp"
-    app:cardElevation="2dp"
     app:cardCornerRadius="12dp"
-    android:clickable="true"
-    android:focusable="true">
+    app:cardElevation="2dp"
+    app:cardBackgroundColor="#FFFFFF">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -20,7 +19,6 @@
         android:padding="12dp"
         android:gravity="center_vertical">
 
-        <!-- Ikona e kategorisë -->
         <ImageView
             android:id="@+id/iv_category_icon"
             android:layout_width="48dp"
@@ -30,7 +28,6 @@
             android:background="@drawable/circle_background"
             android:layout_marginEnd="12dp" />
 
-        <!-- Informacioni -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -51,16 +48,15 @@
                     android:text="Mbetje Urbane"
                     android:textSize="15sp"
                     android:textStyle="bold"
-                    android:textColor="@color/black" />
+                    android:textColor="#212121" />
 
-                <!-- Badge statusi -->
                 <TextView
                     android:id="@+id/tv_status"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="E re"
                     android:textSize="11sp"
-                    android:textColor="@color/white"
+                    android:textColor="#FFFFFF"
                     android:background="@drawable/status_badge"
                     android:paddingStart="8dp"
                     android:paddingEnd="8dp"
@@ -76,7 +72,7 @@
                 android:layout_marginTop="2dp"
                 android:text="Përshkrimi i problemit..."
                 android:textSize="13sp"
-                android:textColor="@color/gray_medium"
+                android:textColor="#616161"
                 android:maxLines="2"
                 android:ellipsize="end" />
 
@@ -91,7 +87,7 @@
                     android:layout_width="12dp"
                     android:layout_height="12dp"
                     android:src="@android:drawable/ic_menu_mylocation"
-                    app:tint="@color/gray_medium"
+                    app:tint="#9E9E9E"
                     android:layout_marginEnd="3dp" />
 
                 <TextView
@@ -101,13 +97,13 @@
                     android:layout_weight="1"
                     android:text="01/01/2025"
                     android:textSize="11sp"
-                    android:textColor="@color/gray_medium" />
+                    android:textColor="#9E9E9E" />
 
                 <ImageView
                     android:layout_width="12dp"
                     android:layout_height="12dp"
                     android:src="@android:drawable/ic_menu_upload"
-                    app:tint="@color/gray_medium"
+                    app:tint="#9E9E9E"
                     android:layout_marginEnd="3dp" />
 
                 <TextView
@@ -116,7 +112,7 @@
                     android:layout_height="wrap_content"
                     android:text="0 konfirmime"
                     android:textSize="11sp"
-                    android:textColor="@color/gray_medium" />
+                    android:textColor="#9E9E9E" />
 
             </LinearLayout>
 

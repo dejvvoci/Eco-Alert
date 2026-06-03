@@ -136,7 +136,12 @@ public class ProfileFragment extends Fragment {
         btnUpgrade.setOnClickListener(v -> showUpgradeDialog());
 
         // Logout
-        layoutLogout.setOnClickListener(v -> showLogoutDialog());
+        if (authViewModel.isAnonymous()) {
+            layoutLogout.setVisibility(View.GONE);
+        } else {
+            layoutLogout.setVisibility(View.VISIBLE);
+            layoutLogout.setOnClickListener(v -> showLogoutDialog());
+        }
 
         // Rreth aplikacionit
         layoutAbout.setOnClickListener(v -> showAboutDialog());

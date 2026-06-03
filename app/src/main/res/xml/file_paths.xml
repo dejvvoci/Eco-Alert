@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <cache-path name="camera_photos" path="camera_photos/" />
-    <external-files-path name="external_photos" path="Pictures/" />
+    <cache-path
+        name="camera_photos"
+        path="." />
+    <external-cache-path
+        name="external_camera_photos"
+        path="." />
+    <files-path
+        name="files_photos"
+        path="." />
 </paths>
