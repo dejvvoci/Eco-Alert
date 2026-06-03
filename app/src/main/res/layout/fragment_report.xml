@@ -188,7 +188,7 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Foto (opsionale) -->
+        <!-- Foto -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -202,38 +202,68 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Foto (opsionale)"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/green_primary"
-                    android:layout_marginBottom="8dp" />
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="10dp">
 
-                    <ImageView
-                        android:id="@+id/iv_photo_preview"
-                        android:layout_width="80dp"
-                        android:layout_height="80dp"
-                        android:scaleType="centerCrop"
-                        android:background="@color/gray_light"
-                        android:visibility="gone" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Foto (max 3)"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/green_primary" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_add_photo"
+                    <TextView
+                        android:id="@+id/tv_photo_count"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="Shto foto"
+                        android:text="0/3"
+                        android:textSize="12sp"
+                        android:textColor="@color/gray_medium" />
+
+                </LinearLayout>
+
+                <!-- Preview horizontal i fotove -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_photos"
+                    android:layout_width="match_parent"
+                    android:layout_height="80dp"
+                    android:layout_marginBottom="10dp"
+                    android:visibility="gone" />
+
+                <!-- Butonat -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_camera"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="Kamera"
+                        android:textSize="12sp"
                         style="@style/Widget.Material3.Button.OutlinedButton"
                         app:strokeColor="@color/green_primary"
                         app:icon="@android:drawable/ic_menu_camera" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_gallery"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Galeria"
+                        android:textSize="12sp"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        app:strokeColor="@color/green_primary"
+                        app:icon="@android:drawable/ic_menu_gallery" />
 
                 </LinearLayout>
 

@@ -1,15 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Leje të detyrueshme -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- OSMDroid cache — vetëm për Android 9 e poshtë -->
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
 
     <application
@@ -21,8 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.EcoAlert">
 
-        <activity
-            android:name=".ui.SplashActivity"
+        <activity android:name=".ui.SplashActivity"
             android:exported="true"
             android:theme="@style/Theme.EcoAlert">
             <intent-filter>
@@ -31,22 +27,25 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".ui.AuthActivity"
+        <activity android:name=".ui.AuthActivity"
+            android:exported="false" />
+        <activity android:name=".ui.MainActivity"
+            android:exported="false" />
+        <activity android:name=".ui.ReportDetailActivity"
+            android:exported="false" />
+        <activity android:name=".ui.LocationPickerActivity"
             android:exported="false" />
 
-        <activity
-            android:name=".ui.MainActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".ui.ReportDetailActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".ui.LocationPickerActivity"
-            android:exported="false" />
+        <!-- FileProvider për kamerën -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
-
 </manifest>

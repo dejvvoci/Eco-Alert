@@ -3,6 +3,8 @@ package com.programimmobile.ecoalert.model;
 import com.google.firebase.firestore.DocumentId;
 import com.google.firebase.firestore.ServerTimestamp;
 import java.util.Date;
+import java.util.List;
+import java.util.ArrayList;
 
 public class Report {
 
@@ -16,6 +18,7 @@ public class Report {
     private String status;
     private int confirmations;
     private String photoUrl;
+    private List<String> photos;
 
     @ServerTimestamp
     private Date timestamp;
@@ -59,4 +62,9 @@ public class Report {
     public void setConfirmations(int confirmations) { this.confirmations = confirmations; }
     public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
     public void setTimestamp(Date timestamp) { this.timestamp = timestamp; }
+
+    public List<String> getPhotos() {
+        return photos != null ? photos : new ArrayList<>();
+    }
+    public void setPhotos(List<String> photos) { this.photos = photos; }
 }
