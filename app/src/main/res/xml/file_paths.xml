@@ -9,4 +9,7 @@
     <files-path
         name="files_photos"
         path="." />
+    <cache-path
+        name="email_attachments"
+        path="email_attachments/" />
 </paths>

@@ -1,8 +1,13 @@
 package com.programimmobile.ecoalert.ui;
 
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,6 +19,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -26,6 +32,8 @@ import com.programimmobile.ecoalert.model.SentReport;
 import com.programimmobile.ecoalert.viewmodel.AuthViewModel;
 import com.programimmobile.ecoalert.viewmodel.ReportViewModel;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,7 +52,6 @@ public class AdminReportsFragment extends Fragment
     private List<Report> allReports = new ArrayList<>();
     private String currentFilter = "Të gjitha";
 
-    // Institucionet — mund të shtohen më shumë
     private final String[] institutionNames = {
             "Ministria e Mjedisit",
             "Bashkia Tiranë",
@@ -66,7 +73,8 @@ public class AdminReportsFragment extends Fragment
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_admin_reports, container, false);
+        return inflater.inflate(R.layout.fragment_admin_reports,
+                container, false);
     }
 
     @Override
@@ -113,21 +121,27 @@ public class AdminReportsFragment extends Fragment
     }
 
     private void setupChipFilter() {
-        chipGroupFilter.setOnCheckedStateChangeListener((group, ids) -> {
-            if (ids.isEmpty()) return;
-            int id = ids.get(0);
-            if (id == R.id.chip_admin_all)      currentFilter = "Të gjitha";
-            else if (id == R.id.chip_admin_new) currentFilter = "E re";
-            else if (id == R.id.chip_admin_approved) currentFilter = "I aprovuar";
-            else if (id == R.id.chip_admin_rejected) currentFilter = "I refuzuar";
-            applyFilter();
-        });
+        chipGroupFilter.setOnCheckedStateChangeListener(
+                (group, ids) -> {
+                    if (ids.isEmpty()) return;
+                    int id = ids.get(0);
+                    if (id == R.id.chip_admin_all)
+                        currentFilter = "Të gjitha";
+                    else if (id == R.id.chip_admin_new)
+                        currentFilter = "E re";
+                    else if (id == R.id.chip_admin_approved)
+                        currentFilter = "I aprovuar";
+                    else if (id == R.id.chip_admin_rejected)
+                        currentFilter = "I refuzuar";
+                    applyFilter();
+                });
     }
 
     private void applyFilter() {
         List<Report> filtered = new ArrayList<>();
         for (Report r : allReports) {
-            String status = r.getStatus() != null ? r.getStatus() : "E re";
+            String status = r.getStatus() != null
+                    ? r.getStatus() : "E re";
             if (currentFilter.equals("Të gjitha")
                     || currentFilter.equals(status)) {
                 filtered.add(r);
@@ -156,7 +170,8 @@ public class AdminReportsFragment extends Fragment
                 .setPositiveButton("Aprovo", (d, w) -> {
                     reportViewModel.approveReport(report);
                     Toast.makeText(requireContext(),
-                            "Raporti u aprovua!", Toast.LENGTH_SHORT).show();
+                            "Raporti u aprovua!",
+                            Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton("Anulo", null)
                 .show();
@@ -164,22 +179,22 @@ public class AdminReportsFragment extends Fragment
 
     @Override
     public void onReject(Report report) {
-        View dialogView = LayoutInflater.from(requireContext())
-                .inflate(android.R.layout.simple_list_item_1, null);
         EditText etReason = new EditText(requireContext());
         etReason.setHint("Arsyeja e refuzimit (opsionale)");
         etReason.setPadding(32, 24, 32, 24);
 
         new AlertDialog.Builder(requireContext())
                 .setTitle("Refuzo Raportin")
-                .setMessage("Raporti për '" + report.getCategory()
-                        + "' do refuzohet.")
+                .setMessage("Raporti për '"
+                        + report.getCategory() + "' do refuzohet.")
                 .setView(etReason)
                 .setPositiveButton("Refuzo", (d, w) -> {
-                    String reason = etReason.getText().toString().trim();
+                    String reason = etReason.getText()
+                            .toString().trim();
                     reportViewModel.rejectReport(report, reason);
                     Toast.makeText(requireContext(),
-                            "Raporti u refuzua.", Toast.LENGTH_SHORT).show();
+                            "Raporti u refuzua.",
+                            Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton("Anulo", null)
                 .show();
@@ -190,11 +205,10 @@ public class AdminReportsFragment extends Fragment
         new AlertDialog.Builder(requireContext())
                 .setTitle("Dërgo te Institucioni")
                 .setItems(institutionNames, (dialog, which) -> {
-                    String email = institutionEmails[which];
                     String name  = institutionNames[which];
+                    String email = institutionEmails[which];
 
                     if (which == institutionNames.length - 1) {
-                        // "Tjetër" — kërko email manual
                         showCustomEmailDialog(report, name);
                     } else {
                         sendEmailToInstitution(report, email, name);
@@ -204,63 +218,84 @@ public class AdminReportsFragment extends Fragment
                 .show();
     }
 
-    private void showCustomEmailDialog(Report report, String name) {
-        EditText etEmail = new EditText(requireContext());
-        etEmail.setHint("email@institucion.gov.al");
-        etEmail.setPadding(32, 24, 32, 24);
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("Email i Institucionit")
-                .setView(etEmail)
-                .setPositiveButton("Dërgo", (d, w) -> {
-                    String email = etEmail.getText().toString().trim();
-                    if (!email.isEmpty()) {
-                        sendEmailToInstitution(report, email, name);
-                    }
-                })
-                .setNegativeButton("Anulo", null)
-                .show();
+    @Override
+    public void onViewDetail(Report report) {
+        Intent intent = new Intent(requireContext(),
+                ReportDetailActivity.class);
+        intent.putExtra("report_id", report.getId());
+        startActivity(intent);
     }
+
+    // ─── Email ────────────────────────────────────────────────────────────────
 
     private void sendEmailToInstitution(Report report,
                                         String email,
                                         String institutionName) {
         String subject = "[EcoAlert] Raport Ndotjeje — "
                 + report.getCategory();
+
         String body = "Të nderuar,\n\n"
-                + "Ju dërgojmë këtë raport ndotjeje nga aplikacioni EcoAlert:\n\n"
+                + "Ju dërgojmë këtë raport ndotjeje nga aplikacioni "
+                + "EcoAlert:\n\n"
+                + "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 + "Kategoria: " + report.getCategory() + "\n"
-                + "Përshkrimi: " + (report.getDescription() != null
-                ? report.getDescription() : "Pa përshkrim") + "\n"
-                + "Koordinatat: " + report.getLatitude()
-                + ", " + report.getLongitude() + "\n"
+                + "Statusi: " + (report.getStatus() != null
+                ? report.getStatus() : "E re") + "\n"
                 + "Konfirmime nga komuniteti: "
-                + report.getConfirmations() + "\n\n"
+                + report.getConfirmations() + "\n"
+                + "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                + "Përshkrimi:\n"
+                + (report.getDescription() != null
+                && !report.getDescription().isEmpty()
+                ? report.getDescription()
+                : "Pa përshkrim") + "\n\n"
+                + "Koordinatat GPS:\n"
+                + "Gjerësi: " + report.getLatitude() + "\n"
+                + "Gjatësi: " + report.getLongitude() + "\n"
+                + "Harta: https://maps.google.com/?q="
+                + report.getLatitude() + ","
+                + report.getLongitude() + "\n\n"
+                + "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 + "Ju lutemi ndërmerrni masat e nevojshme.\n\n"
                 + "Me respekt,\nEcoAlert Admin";
 
-        // Metoda 1 — ACTION_SENDTO (email apps direkt)
-        Intent emailIntent = new Intent(Intent.ACTION_SENDTO);
-        emailIntent.setData(android.net.Uri.parse("mailto:" + email));
-        emailIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
-        emailIntent.putExtra(Intent.EXTRA_TEXT, body);
-
-        // Metoda 2 — ACTION_SEND me chooser (fallback)
-        Intent fallbackIntent = new Intent(Intent.ACTION_SEND);
-        fallbackIntent.setType("message/rfc822");
-        fallbackIntent.putExtra(Intent.EXTRA_EMAIL, new String[]{email});
-        fallbackIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
-        fallbackIntent.putExtra(Intent.EXTRA_TEXT, body);
-
-        // Metoda 3 — Chooser që provon të dyja
-        Intent chooser = Intent.createChooser(fallbackIntent,
-                "Dërgo email me...");
-
-        // Shto emailIntent si alternativë shtesë
-        chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS,
-                new Intent[]{emailIntent});
+        // Grumbullo imazhet si URI
+        ArrayList<Uri> imageUris = new ArrayList<>();
+        List<String> photos = report.getPhotos();
+        if (photos != null && !photos.isEmpty()) {
+            for (int i = 0; i < photos.size(); i++) {
+                Uri uri = saveBase64AsFile(
+                        photos.get(i), "foto_" + (i + 1) + ".jpg");
+                if (uri != null) imageUris.add(uri);
+            }
+        }
 
         try {
+            Intent emailIntent;
+
+            if (imageUris.isEmpty()) {
+                emailIntent = new Intent(Intent.ACTION_SEND);
+                emailIntent.setType("message/rfc822");
+                emailIntent.putExtra(Intent.EXTRA_EMAIL,
+                        new String[]{email});
+                emailIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
+                emailIntent.putExtra(Intent.EXTRA_TEXT, body);
+            } else {
+                emailIntent = new Intent(Intent.ACTION_SEND_MULTIPLE);
+                emailIntent.setType("message/rfc822");
+                emailIntent.putExtra(Intent.EXTRA_EMAIL,
+                        new String[]{email});
+                emailIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
+                emailIntent.putExtra(Intent.EXTRA_TEXT, body);
+                emailIntent.putParcelableArrayListExtra(
+                        Intent.EXTRA_STREAM, imageUris);
+                emailIntent.addFlags(
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            }
+
+            Intent chooser = Intent.createChooser(
+                    emailIntent, "Dërgo email me...");
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(chooser);
 
             // Ruaj në Firestore
@@ -273,39 +308,76 @@ public class AdminReportsFragment extends Fragment
                     institutionName,
                     report.getLatitude(),
                     report.getLongitude(),
-                    adminId != null ? adminId : ""
-            );
+                    adminId != null ? adminId : "");
             reportViewModel.saveSentReport(sentReport);
 
             Toast.makeText(requireContext(),
                     "Duke hapur email client...",
                     Toast.LENGTH_SHORT).show();
 
-        } catch (android.content.ActivityNotFoundException e) {
-            // Asnjë aplikacion — ofro kopjim në clipboard
+        } catch (ActivityNotFoundException e) {
             showCopyToClipboardDialog(email, subject, body);
         }
+    }
+
+    private Uri saveBase64AsFile(String base64, String fileName) {
+        try {
+            byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+
+            File cacheDir = requireContext().getCacheDir();
+            File emailDir = new File(cacheDir, "email_attachments");
+            if (!emailDir.exists()) emailDir.mkdirs();
+
+            File file = new File(emailDir, fileName);
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(bytes);
+            fos.flush();
+            fos.close();
+
+            return FileProvider.getUriForFile(
+                    requireContext(),
+                    requireContext().getPackageName() + ".fileprovider",
+                    file);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void showCustomEmailDialog(Report report, String name) {
+        EditText etEmail = new EditText(requireContext());
+        etEmail.setHint("email@institucion.gov.al");
+        etEmail.setPadding(32, 24, 32, 24);
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Email i Institucionit")
+                .setView(etEmail)
+                .setPositiveButton("Dërgo", (d, w) -> {
+                    String email = etEmail.getText()
+                            .toString().trim();
+                    if (!email.isEmpty()) {
+                        sendEmailToInstitution(report, email, name);
+                    }
+                })
+                .setNegativeButton("Anulo", null)
+                .show();
     }
 
     private void showCopyToClipboardDialog(String email,
                                            String subject,
                                            String body) {
         String fullText = "Destinatari: " + email + "\n"
-                + "Subjekti: " + subject + "\n\n"
-                + body;
+                + "Subjekti: " + subject + "\n\n" + body;
 
-        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+        new AlertDialog.Builder(requireContext())
                 .setTitle("Nuk u gjet aplikacion emaili")
-                .setMessage("Teksti i emailit u kopjua në clipboard.\n"
-                        + "Mund ta ngasësh manualisht.")
+                .setMessage("Kopjo tekstin dhe dërgoje manualisht.")
                 .setPositiveButton("Kopjo", (d, w) -> {
-                    android.content.ClipboardManager clipboard =
-                            (android.content.ClipboardManager)
-                                    requireContext().getSystemService(
-                                            android.content.Context.CLIPBOARD_SERVICE);
-                    android.content.ClipData clip =
-                            android.content.ClipData.newPlainText(
-                                    "Email EcoAlert", fullText);
+                    ClipboardManager clipboard =
+                            (ClipboardManager) requireContext()
+                                    .getSystemService(
+                                            Context.CLIPBOARD_SERVICE);
+                    ClipData clip = ClipData.newPlainText(
+                            "Email EcoAlert", fullText);
                     clipboard.setPrimaryClip(clip);
                     Toast.makeText(requireContext(),
                             "U kopjua në clipboard!",
@@ -313,13 +385,5 @@ public class AdminReportsFragment extends Fragment
                 })
                 .setNegativeButton("Anulo", null)
                 .show();
-    }
-
-    @Override
-    public void onViewDetail(Report report) {
-        Intent intent = new Intent(requireContext(),
-                ReportDetailActivity.class);
-        intent.putExtra("report_id", report.getId());
-        startActivity(intent);
     }
 }
