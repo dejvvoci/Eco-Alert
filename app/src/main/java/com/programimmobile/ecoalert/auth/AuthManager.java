@@ -37,17 +37,21 @@ public class AuthManager {
     }
 
     private final FirebaseAuth firebaseAuth;
-    private final GoogleSignInClient googleSignInClient;
+    private GoogleSignInClient googleSignInClient;
 
     public AuthManager(Context context) {
         this.firebaseAuth = FirebaseAuth.getInstance();
 
-        // Konfiguro Google Sign-In
-        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken(context.getString(R.string.default_web_client_id))
-                .requestEmail()
-                .build();
-        this.googleSignInClient = GoogleSignIn.getClient(context, gso);
+        try {
+            GoogleSignInOptions gso = new GoogleSignInOptions
+                    .Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                    .requestEmail()
+                    .build();
+            this.googleSignInClient =
+                    GoogleSignIn.getClient(context, gso);
+        } catch (Exception e) {
+            this.googleSignInClient = null;
+        }
     }
 
     // ─── Kontrollo nëse përdoruesi është i loguar ───────────────────────────
@@ -170,7 +174,9 @@ public class AuthManager {
 
     public void signOut(Activity activity) {
         firebaseAuth.signOut();
-        googleSignInClient.signOut();
+        if (googleSignInClient != null) {
+            googleSignInClient.signOut();
+        }
     }
 
     // ─── Reset fjalëkalimi ───────────────────────────────────────────────────
